@@ -1,0 +1,618 @@
+{
+  "info": {
+    "name": "TNT Pulse",
+    "description": "TNT Pulse — Internal Project Management Tool API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@tntpulse.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users?role=developer&status=active",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users"],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "developer"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"role\": \"manager\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/2",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "2"]
+            }
+          }
+        },
+        {
+          "name": "Suspend User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/3/suspend",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "3", "suspend"]
+            }
+          }
+        },
+        {
+          "name": "Update Permissions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 2,\n  \"permissions\": [\n    {\n      \"module_name\": \"projects\",\n      \"can_view\": true,\n      \"can_create\": true,\n      \"can_edit\": true,\n      \"can_delete\": false\n    },\n    {\n      \"module_name\": \"tasks\",\n      \"can_view\": true,\n      \"can_create\": true,\n      \"can_edit\": true,\n      \"can_delete\": true\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/2/permissions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "2", "permissions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Website Redesign\",\n  \"description\": \"Complete redesign of the company website including new branding, CMS integration, and performance optimization.\",\n  \"client_name\": \"TNT Innovations\",\n  \"start_date\": \"2025-01-15\",\n  \"deadline\": \"2025-04-15\",\n  \"status\": \"planning\",\n  \"priority\": \"high\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects"]
+            }
+          }
+        },
+        {
+          "name": "Get All Projects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/projects?status=in_progress&priority=high",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "in_progress"
+                },
+                {
+                  "key": "priority",
+                  "value": "high"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Project By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/projects/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"priority\": \"critical\",\n  \"deadline\": \"2025-05-01\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "1"]
+            }
+          }
+        },
+        {
+          "name": "Add Project Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects/1/members",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "1", "members"]
+            }
+          }
+        },
+        {
+          "name": "Remove Project Member",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/projects/1/members/2",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "1", "members", "2"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "Create Task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": 1,\n  \"title\": \"Implement user authentication\",\n  \"description\": \"Build JWT-based login and registration system with bcrypt password hashing.\",\n  \"assigned_to\": 2,\n  \"due_date\": \"2025-02-01\",\n  \"priority\": \"high\",\n  \"estimated_hours\": 24\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/tasks",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks"]
+            }
+          }
+        },
+        {
+          "name": "Get My Tasks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/my",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks", "my"]
+            }
+          }
+        },
+        {
+          "name": "Get Tasks By Project",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/project/1?status=todo&priority=high",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks", "project", "1"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "todo"
+                },
+                {
+                  "key": "priority",
+                  "value": "high"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Task",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"priority\": \"critical\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/tasks/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks", "1"]
+            }
+          }
+        },
+        {
+          "name": "Add Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"This task is blocked waiting on the design team to finalize the mockups.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/tasks/1/comments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks", "1", "comments"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alerts",
+      "item": [
+        {
+          "name": "Get My Alerts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/alerts?is_read=false",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts"],
+              "query": [
+                {
+                  "key": "is_read",
+                  "value": "false"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/alerts/unread-count",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts", "unread-count"]
+            }
+          }
+        },
+        {
+          "name": "Mark All As Read",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/alerts/mark-all-read",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts", "mark-all-read"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/dashboard/admin",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dashboard", "admin"]
+            }
+          }
+        },
+        {
+          "name": "Member Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/dashboard/member",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dashboard", "member"]
+            }
+          }
+        },
+        {
+          "name": "Project Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/dashboard/project/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dashboard", "project", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Activity",
+      "item": [
+        {
+          "name": "Global Search",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/activity/search?q=redesign",
+              "host": ["{{base_url}}"],
+              "path": ["api", "activity", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "redesign"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Project Activity",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/activity/project/1?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "activity", "project", "1"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
