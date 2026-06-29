@@ -26,7 +26,7 @@ export const sendEmail = async ({ to, subject, html }) => {
   }
 };
 
-export const sendDeadlineWarningEmail = async ({ to, name, projectName, deadline, daysRemaining }) => {
+export const sendDeadlineWarningEmail = async ({ to, name, projectName, deadline, daysRemaining, isAdminAlert, memberNames }) => {
   const formattedDate = new Date(deadline).toLocaleDateString('en-GB', {
     weekday: 'long',
     day: 'numeric',
@@ -39,6 +39,33 @@ export const sendDeadlineWarningEmail = async ({ to, name, projectName, deadline
   const badgeColor = isUrgent ? '#ef4444' : '#f59e0b';
   const badgeBg = isUrgent ? '#fef2f2' : '#fffbeb';
 
+  let extraContent = '';
+  let subject = '';
+
+  if (isAdminAlert) {
+    subject = `\uD83D\uDD14 ADMIN ALERT: ${projectName} deadline in ${daysRemaining} days`;
+    extraContent = `
+      <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+        <h3 style="font-size: 15px; font-weight: 700; color: #dc2626; margin: 0 0 12px 0;">Team Members on this project:</h3>
+        <p style="font-size: 14px; color: #1e293b; line-height: 1.6; margin: 0;">${memberNames || 'No members assigned'}</p>
+      </div>
+      <div style="background-color: #fef2f2; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+        <p style="font-size: 13px; color: #dc2626; margin: 0; line-height: 1.5; font-weight: 600;">
+          Please follow up with your team to ensure this project stays on track.
+        </p>
+      </div>
+    `;
+  } else {
+    subject = `\u26A0\uFE0F [${urgencyLabel}] Project ${projectName} deadline in ${daysRemaining} days`;
+    extraContent = `
+      <div style="background-color: #eef2ff; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+        <p style="font-size: 13px; color: #4338ca; margin: 0; line-height: 1.5;">
+          ${isUrgent ? 'This deadline has passed or is imminent. Immediate action is required to avoid project delays.' : 'Please ensure the project is on track to meet the deadline. Review your task list and escalate any blockers.'}
+        </p>
+      </div>
+    `;
+  }
+
   const html = `
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 24px; background-color: #f8fafc;">
       <div style="text-align: center; margin-bottom: 32px;">
@@ -48,7 +75,7 @@ export const sendDeadlineWarningEmail = async ({ to, name, projectName, deadline
         <div style="display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background-color: ${badgeBg}; color: ${badgeColor}; margin-bottom: 20px;">${urgencyLabel}</div>
         <h1 style="font-size: 20px; font-weight: 700; color: #1e293b; margin: 0 0 8px 0;">Hello ${name},</h1>
         <p style="font-size: 15px; color: #475569; line-height: 1.6; margin: 0 0 24px 0;">
-          This is a deadline warning for project <strong style="color: #1e293b;">${projectName}</strong>.
+          ${isAdminAlert ? 'As an administrator, you are being notified that the following project deadline is approaching.' : `This is a deadline warning for project <strong style="color: #1e293b;">${projectName}</strong>.`}
         </p>
         <div style="background-color: #f1f5f9; border-radius: 8px; padding: 24px; text-align: center; margin-bottom: 24px;">
           <div style="font-size: 48px; font-weight: 800; color: ${badgeColor}; line-height: 1; margin-bottom: 4px;">${daysRemaining}</div>
@@ -64,11 +91,7 @@ export const sendDeadlineWarningEmail = async ({ to, name, projectName, deadline
             <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #1e293b; text-align: right;">${formattedDate}</td>
           </tr>
         </table>
-        <div style="background-color: #eef2ff; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-          <p style="font-size: 13px; color: #4338ca; margin: 0; line-height: 1.5;">
-            ${isUrgent ? 'This deadline has passed or is imminent. Immediate action is required to avoid project delays.' : 'Please ensure the project is on track to meet the deadline. Review your task list and escalate any blockers.'}
-          </p>
-        </div>
+        ${extraContent}
       </div>
       <div style="text-align: center; margin-top: 24px; font-size: 12px; color: #94a3b8;">
         <p style="margin: 0 0 4px 0;">TNT Innovations</p>
@@ -76,8 +99,6 @@ export const sendDeadlineWarningEmail = async ({ to, name, projectName, deadline
       </div>
     </div>
   `;
-
-  const subject = `\u26A0\uFE0F [${urgencyLabel}] Project ${projectName} deadline in ${daysRemaining} days`;
 
   return sendEmail({ to, subject, html });
 };

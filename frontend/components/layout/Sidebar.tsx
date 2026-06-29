@@ -25,8 +25,8 @@ import { useAuthStore } from '@/lib/store';
 import api from '@/lib/api';
 
 const navigation = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, module: '' },
-  { label: 'Announcements', href: '/announcements', icon: Megaphone, module: '' },
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, module: 'dashboard' },
+  { label: 'Announcements', href: '/announcements', icon: Megaphone, module: 'announcements' },
   { label: 'Projects', href: '/projects', icon: FolderKanban, module: 'projects' },
   { label: 'My Tasks', href: '/tasks', icon: CheckSquare, module: 'tasks' },
   { label: 'Team', href: '/team', icon: Users, module: 'team' },
@@ -71,9 +71,7 @@ function NavLinks({ collapsed }: { collapsed: boolean }) {
   const hasPermission = useAuthStore((s) => s.hasPermission);
 
   const visibleNav = navigation.filter((item) => {
-    if (userRole === 'super_admin') return true;
-    if (item.module === '') return true;
-    if (item.module === 'settings' || item.module === 'reports') {
+    if (item.module === 'reports' || item.module === 'settings') {
       return userRole === 'super_admin' || userRole === 'manager';
     }
     return hasPermission(item.module, 'can_view');
@@ -84,7 +82,6 @@ function NavLinks({ collapsed }: { collapsed: boolean }) {
       {visibleNav.map((item) => {
         const Icon = item.icon;
         const active = pathname.startsWith(item.href);
-        const isAnnouncements = item.href === '/announcements';
         return (
           <Link
             key={item.href}
@@ -98,11 +95,6 @@ function NavLinks({ collapsed }: { collapsed: boolean }) {
             <Icon size={20} className="shrink-0" />
             {!collapsed && (
               <span className="flex-1">{item.label}</span>
-            )}
-            {!collapsed && isAnnouncements && (unreadData ?? 0) > 0 && (
-              <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-bold text-white bg-red-500 rounded-full">
-                {unreadData}
-              </span>
             )}
           </Link>
         );
@@ -119,8 +111,7 @@ function UserSection({ collapsed }: { collapsed: boolean }) {
     localStorage.removeItem('tnt_token');
     localStorage.removeItem('tnt_user');
     localStorage.removeItem('tnt_permissions');
-    logout();
-    window.location.href = '/login';
+    window.location.replace('/login');
   };
 
   return (

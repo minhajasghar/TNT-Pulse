@@ -7,26 +7,94 @@ const logActivity = async (userId, action, entityType, entityId, oldValue, newVa
   );
 };
 
-export const createProject = async (req, res, next) => {
+export const createProject = async (req, res) => {
   try {
-    const { name, description, client_name, start_date, deadline, priority } = req.body;
+    console.log('createProject called');
+    console.log('Body:', req.body);
+    console.log('User:', req.user);
 
-    if (!name) {
-      return res.status(400).json({ success: false, message: 'Project name is required' });
+    const {
+      name,
+      description,
+      client_name,
+      start_date,
+      deadline,
+      priority,
+      status = 'planning',
+      members = [],
+    } = req.body;
+
+    console.log('Fields:', { name, client_name, start_date, deadline, priority });
+
+    // Validation
+    const missing = [];
+    if (!name) missing.push('name');
+    if (!client_name) missing.push('client_name');
+    if (!start_date) missing.push('start_date');
+    if (!deadline) missing.push('deadline');
+    if (!priority) missing.push('priority');
+
+    if (missing.length > 0) {
+      console.log('Missing fields:', missing);
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missing.join(', ')}`,
+      });
     }
 
+    // Insert project
     const [result] = await pool.execute(
-      'INSERT INTO projects (name, description, client_name, start_date, deadline, priority, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, description || null, client_name || null, start_date || null, deadline || null, priority || 'medium', req.user.id],
+      `INSERT INTO projects (name, description, client_name, start_date, deadline, priority, status, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, description || null, client_name, start_date, deadline, priority, status, req.user.id],
     );
 
-    await logActivity(req.user.id, 'create_project', 'project', result.insertId, null, { name }, req.ip);
+    console.log('Project created:', result.insertId);
 
-    const [project] = await pool.execute('SELECT * FROM projects WHERE id = ?', [result.insertId]);
+    const projectId = result.insertId;
 
-    return res.status(201).json({ success: true, message: 'Project created', data: project[0] });
-  } catch (err) {
-    next(err);
+    // Add members (safe)
+    if (members && members.length > 0) {
+      console.log('Adding members:', members);
+      for (const m of members) {
+        try {
+          await pool.execute(
+            'INSERT INTO project_members (project_id, user_id, project_role) VALUES (?, ?, ?)',
+            [projectId, m.user_id, m.project_role || 'Member'],
+          );
+        } catch (memberErr) {
+          console.log('Member insert with project_role failed, trying without:', memberErr.message);
+          await pool.execute(
+            'INSERT INTO project_members (project_id, user_id) VALUES (?, ?)',
+            [projectId, m.user_id],
+          );
+        }
+      }
+    }
+
+    // Activity log (safe)
+    try {
+      await pool.execute(
+        'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?)',
+        [req.user.id, 'project_created', 'project', projectId, JSON.stringify({ name, priority, status }), req.ip],
+      );
+    } catch (logErr) {
+      console.error('Activity log failed:', logErr.message);
+    }
+
+    const [projectRows] = await pool.execute('SELECT * FROM projects WHERE id = ?', [projectId]);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Project created successfully',
+      data: projectRows[0],
+    });
+  } catch (error) {
+    console.error('createProject ERROR:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to create project',
+    });
   }
 };
 
@@ -65,46 +133,69 @@ export const getAllProjects = async (req, res, next) => {
 
 export const getProjectById = async (req, res, next) => {
   try {
-    const [projects] = await pool.execute(
-      `SELECT p.*,
-              (SELECT COUNT(*) FROM project_members WHERE project_id = p.id) AS member_count,
-              (SELECT COUNT(*) FROM tasks WHERE project_id = p.id) AS total_tasks,
-              (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'done') AS completed_tasks,
-              (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status != 'done') AS active_tasks,
-              u.name AS created_by_name
-       FROM projects p
-       LEFT JOIN users u ON u.id = p.created_by
-       WHERE p.id = ? AND p.deleted_at IS NULL`,
-      [req.params.id],
-    );
+    const [projectRows] = await pool.execute(`
+      SELECT p.*, u.name as created_by_name
+      FROM projects p
+      LEFT JOIN users u ON p.created_by = u.id
+      WHERE p.id = ? AND p.deleted_at IS NULL
+    `, [req.params.id]);
 
-    if (projects.length === 0) {
+    if (projectRows.length === 0) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
 
-    const [members] = await pool.execute(
-      `SELECT u.id, u.name, u.email, u.role, u.status, pm.assigned_at,
-              (SELECT COUNT(*) FROM tasks t WHERE t.project_id = pm.project_id AND t.assigned_to = u.id) as task_count,
-              (SELECT COUNT(*) FROM tasks t WHERE t.project_id = pm.project_id AND t.assigned_to = u.id AND t.status = 'done') as completed_tasks,
-              (SELECT COUNT(*) FROM tasks t WHERE t.project_id = pm.project_id AND t.assigned_to = u.id AND t.status != 'done' AND t.deadline < NOW()) as overdue_tasks
-       FROM project_members pm
-       JOIN users u ON u.id = pm.user_id
-       WHERE pm.project_id = ?
-       ORDER BY pm.assigned_at ASC`,
-      [req.params.id],
-    );
+    const project = projectRows[0];
 
-    const membersWithStats = members.map(m => {
-        const initials = m.name ? m.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U';
-        const completion_rate = m.task_count > 0 ? Math.round((m.completed_tasks / m.task_count) * 100) : 0;
-        return { ...m, initials, completion_rate };
-    });
+    // Get Members
+    let members;
+    try {
+      const [m] = await pool.execute(`
+        SELECT 
+          pm.project_role,
+          pm.assigned_at,
+          u.id as user_id, u.name, u.email, 
+          u.role, u.status
+        FROM project_members pm
+        JOIN users u ON pm.user_id = u.id
+        WHERE pm.project_id = ?
+      `, [req.params.id]);
+      members = m;
+    } catch (roleErr) {
+      const [m] = await pool.execute(`
+        SELECT 
+          'Member' as project_role,
+          pm.assigned_at,
+          u.id as user_id, u.name, u.email, 
+          u.role, u.status
+        FROM project_members pm
+        JOIN users u ON pm.user_id = u.id
+        WHERE pm.project_id = ?
+      `, [req.params.id]);
+      members = m;
+    }
 
-    return res.status(200).json({
+    // Get Milestones
+    const [milestones] = await pool.execute(`
+      SELECT * FROM milestones 
+      WHERE project_id = ?
+      ORDER BY due_date ASC
+    `, [req.params.id]);
+
+    // Get Requirements
+    const [requirements] = await pool.execute(`
+      SELECT r.*, u.name as created_by_name
+      FROM requirements r
+      LEFT JOIN users u ON r.created_by = u.id
+      WHERE r.project_id = ?
+    `, [req.params.id]);
+
+    return res.json({
       success: true,
       data: {
-        ...projects[0],
-        members: membersWithStats,
+        ...project,
+        members,
+        milestones,
+        requirements,
       },
     });
   } catch (err) {
@@ -174,43 +265,92 @@ export const deleteProject = async (req, res, next) => {
   }
 };
 
-export const addMember = async (req, res, next) => {
+export const addMember = async (req, res) => {
   try {
-    const { user_id } = req.body;
+    console.log('addMember called');
+    console.log('Params:', req.params);
+    console.log('Body:', req.body);
+
+    const project_id = req.params.id;
+    const { user_id, project_role } = req.body;
 
     if (!user_id) {
-      return res.status(400).json({ success: false, message: 'user_id is required' });
+      return res.status(400).json({
+        success: false,
+        message: 'user_id is required',
+      });
     }
 
-    const [project] = await pool.execute('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
-    if (project.length === 0) {
-      return res.status(404).json({ success: false, message: 'Project not found' });
+    // Check project exists
+    const [projects] = await pool.execute(
+      'SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NULL',
+      [project_id],
+    );
+
+    if (!projects.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found',
+      });
     }
 
-    const [user] = await pool.execute('SELECT id FROM users WHERE id = ? AND status = ?', [user_id, 'active']);
-    if (user.length === 0) {
-      return res.status(404).json({ success: false, message: 'User not found or not active' });
+    // Check user exists
+    const [users] = await pool.execute(
+      'SELECT id, name FROM users WHERE id = ? AND status = ?',
+      [user_id, 'active'],
+    );
+
+    if (!users.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found or suspended',
+      });
     }
 
+    // Check already member
     const [existing] = await pool.execute(
       'SELECT id FROM project_members WHERE project_id = ? AND user_id = ?',
-      [req.params.id, user_id],
+      [project_id, user_id],
     );
 
     if (existing.length > 0) {
-      return res.status(409).json({ success: false, message: 'User is already a member of this project' });
+      return res.status(409).json({
+        success: false,
+        message: `${users[0].name} is already in this project`,
+      });
     }
 
-    await pool.execute(
-      'INSERT INTO project_members (project_id, user_id) VALUES (?, ?)',
-      [req.params.id, user_id],
-    );
+    // Try insert with project_role, fallback without
+    try {
+      await pool.execute(
+        'INSERT INTO project_members (project_id, user_id, project_role) VALUES (?, ?, ?)',
+        [project_id, user_id, project_role || 'Member'],
+      );
+    } catch (insertError) {
+      console.log('project_role column may not exist, trying without it');
+      await pool.execute(
+        'INSERT INTO project_members (project_id, user_id) VALUES (?, ?)',
+        [project_id, user_id],
+      );
+    }
 
-    await logActivity(req.user.id, 'add_member', 'project', req.params.id, null, { user_id }, req.ip);
+    console.log('Member added successfully');
 
-    return res.status(201).json({ success: true, message: 'Member added to project' });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({
+      success: true,
+      message: `${users[0].name} added to project successfully`,
+      data: {
+        user_id,
+        name: users[0].name,
+        project_role: project_role || 'Member',
+      },
+    });
+  } catch (error) {
+    console.error('addMember ERROR:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to add member',
+    });
   }
 };
 
@@ -255,6 +395,11 @@ export const removeMember = async (req, res, next) => {
 
     await pool.execute(
       'DELETE FROM project_members WHERE project_id = ? AND user_id = ?',
+      [req.params.id, userId],
+    );
+
+    await pool.execute(
+      'UPDATE tasks SET assigned_to = NULL WHERE project_id = ? AND assigned_to = ?',
       [req.params.id, userId],
     );
 
@@ -310,7 +455,6 @@ export const permanentDeleteProject = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Project not found in recycle bin' });
     }
 
-    // Delete related entities first due to foreign keys
     await connection.execute('DELETE FROM requirements WHERE project_id = ?', [req.params.id]);
     await connection.execute('DELETE FROM milestones WHERE project_id = ?', [req.params.id]);
     await connection.execute('DELETE FROM tasks WHERE project_id = ?', [req.params.id]);

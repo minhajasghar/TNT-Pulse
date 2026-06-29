@@ -26,6 +26,12 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Request logger
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} | ${req.method} ${req.url}`);
+  next();
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -48,9 +54,17 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/reports', reportRoutes);
 
 app.use((err, req, res, next) => {
-  console.error(`Unhandled error: ${err.message}`);
+  console.error('=== SERVER ERROR ===');
+  console.error('Route:', req.method, req.url);
+  console.error('Body:', req.body);
+  console.error('Error:', err.message);
+  console.error('Stack:', err.stack);
+  console.error('===================');
+
   res.status(err.status || 500).json({
-    error: err.message || 'Internal server error',
+    success: false,
+    message: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
 });
 

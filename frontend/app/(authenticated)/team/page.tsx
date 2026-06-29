@@ -197,6 +197,7 @@ export default function TeamPage() {
 }
 
 const ROLE_OPTIONS = [
+  { value: 'developer', label: 'Developer' },
   { value: 'frontend_developer', label: 'Frontend Developer' },
   { value: 'backend_developer', label: 'Backend Developer' },
   { value: 'full_stack_developer', label: 'Full Stack Developer' },
@@ -214,24 +215,39 @@ const ROLE_OPTIONS = [
 
 function AddMemberModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [isOtherRole, setIsOtherRole] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState('developer');
   const [customRole, setCustomRole] = useState('');
+  const [setPasswordManually, setSetPasswordManually] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<z.infer<typeof addSchema>>({
     resolver: zodResolver(addSchema),
     defaultValues: { role: 'developer', name: '', email: '' },
   });
 
-  const { toast } = useToast();
-
   const mutation = useMutation({
     mutationFn: async (data: z.infer<typeof addSchema>) => {
-      await api.post('/api/auth/register', data);
+      const payload: Record<string, unknown> = { ...data };
+      if (setPasswordManually) {
+        if (password.length < 8) {
+          setPasswordError('Password must be at least 8 characters');
+          throw new Error('Validation failed');
+        }
+        if (password !== confirmPassword) {
+          setPasswordError('Passwords do not match');
+          throw new Error('Validation failed');
+        }
+        payload.password = password;
+      }
+      await api.post('/api/auth/register', payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast({ message: 'Member added. Login credentials sent via email.', type: 'success' });
+      toast({ message: setPasswordManually ? 'Member added successfully.' : 'Member added. Login credentials sent via email.', type: 'success' });
       onClose();
     },
   });
@@ -288,6 +304,52 @@ function AddMemberModal({ onClose }: { onClose: () => void }) {
             )}
             {errors.role && <p className="text-xs text-red-500 mt-1">{errors.role.message}</p>}
           </div>
+
+          {/* Hidden input to register role field with react-hook-form */}
+          <input type="hidden" {...register('role')} />
+
+          {/* Password Section */}
+          <div className="border-t border-gray-100 pt-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={setPasswordManually}
+                onChange={(e) => {
+                  setSetPasswordManually(e.target.checked);
+                  setPasswordError('');
+                }}
+                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Set password manually</span>
+            </label>
+            <p className="text-xs text-gray-400 mt-1 ml-6">If unchecked, a random password will be generated and sent via email.</p>
+            {setPasswordManually && (
+              <div className="mt-3 space-y-3 ml-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
+                    placeholder="At least 8 characters"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(''); }}
+                    placeholder="Re-enter password"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
+              </div>
+            )}
+          </div>
+
           {mutation.isError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
               {(mutation.error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to add member'}
@@ -639,6 +701,7 @@ function ViewMemberModal({ user: targetUser, onClose }: { user: UserData; onClos
 function PermissionsModal({ user: targetUser, onClose }: { user: UserData; onClose: () => void }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user: currentUser, setPermissions } = useAuthStore();
 
   const { data: existingPerms } = useQuery<Permissions[]>({
     queryKey: ['permissions', targetUser.id],
@@ -677,9 +740,19 @@ function PermissionsModal({ user: targetUser, onClose }: { user: UserData; onClo
       const res = await api.put(`/api/users/${targetUser.id}/permissions`, { user_id: targetUser.id, permissions });
       return res.data.data;
     },
-    onSuccess: (updatedPerms) => {
+    onSuccess: async (updatedPerms) => {
       toast({ message: 'Permissions saved successfully', type: 'success' });
       queryClient.setQueryData(['permissions', targetUser.id], updatedPerms);
+      
+      if (currentUser?.id === targetUser.id) {
+        try {
+          const myPermsRes = await api.get('/api/users/me/permissions');
+          setPermissions(myPermsRes.data.data || []);
+        } catch (e) {
+          console.error('Failed to refresh own permissions', e);
+        }
+      }
+
       if (updatedPerms) {
         const mapped: Record<string, { view: boolean; create: boolean; edit: boolean; delete: boolean }> = {};
         for (const p of updatedPerms) {
@@ -701,12 +774,12 @@ function PermissionsModal({ user: targetUser, onClose }: { user: UserData; onClo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h2 className="text-lg font-semibold text-gray-900">Permissions — {targetUser.name}</h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={20} className="text-gray-400" /></button>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
           {permissionModules.map((mod) => {
             const p = perms[mod] || { view: false, create: false, edit: false, delete: false };
             return (

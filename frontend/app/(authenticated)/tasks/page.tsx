@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
-import { CheckCircle, Circle, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Circle, AlertTriangle, Info } from 'lucide-react';
 import api from '@/lib/api';
 import Badge from '@/components/ui/Badge';
 import TaskDetailModal from '@/components/tasks/TaskDetailModal';
@@ -70,6 +70,13 @@ export default function TasksPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
+
+      <div className="bg-blue-50 text-blue-800 p-3 rounded-lg flex items-start gap-3 border border-blue-100">
+        <Info size={20} className="shrink-0 mt-0.5 text-blue-600" />
+        <p className="text-sm">
+          <strong>Note:</strong> You can only create new tasks by navigating to a specific Project board first. This page shows tasks that are assigned to you across all projects.
+        </p>
+      </div>
 
       <div className="flex gap-1 bg-white rounded-lg p-1 shadow-sm border border-gray-100 w-fit">
         {tabs.map((tab) => (

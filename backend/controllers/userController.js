@@ -1,3 +1,4 @@
+import bcrypt from 'bcrypt';
 import pool from '../config/db.js';
 
 const logActivity = async (userId, action, entityType, entityId, oldValue, newValue, ipAddress) => {
@@ -95,9 +96,28 @@ export const getUserById = async (req, res, next) => {
 
 export const updateUser = async (req, res, next) => {
   try {
+    const targetId = parseInt(req.params.id);
+    const currentUserId = parseInt(req.user.id);
+    const isSelf = targetId === currentUserId;
+    const isAdmin = req.user.role === 'super_admin';
+    const isManager = req.user.role === 'manager';
+
+    // Permission rules:
+    // 1. User can update their OWN profile (name, email, password)
+    // 2. Only super_admin can update someone else's role or status
+    // 3. Nobody can update super_admin except themselves
+
+    if (!isSelf && !isAdmin && !isManager) {
+      return res.status(403).json({ success: false, message: 'You can only update your own profile' });
+    }
+
+    if (!isSelf && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Insufficient permissions' });
+    }
+
     const [existing] = await pool.execute(
-      'SELECT id, name, email, role, status FROM users WHERE id = ?',
-      [req.params.id],
+      'SELECT id, name, email, password_hash, role, status FROM users WHERE id = ?',
+      [targetId],
     );
 
     if (existing.length === 0) {
@@ -106,26 +126,60 @@ export const updateUser = async (req, res, next) => {
 
     const user = existing[0];
 
-    if (user.role === 'super_admin' && parseInt(req.user.id) !== parseInt(req.params.id)) {
+    if (user.role === 'super_admin' && !isSelf) {
       return res.status(403).json({ success: false, message: 'Cannot modify Super Admin account' });
     }
 
-    const allowedFields = ['name', 'status', 'role', 'email', 'password'];
+    // Build allowed fields
     const updates = {};
     const changes = [];
 
-    for (const field of allowedFields) {
-      if (req.body[field] !== undefined) {
-        if (field === 'role' && req.user.role !== 'super_admin') {
-          return res.status(403).json({ success: false, message: 'Only super_admin can update role' });
-        }
+    // Self can always update name and email
+    if (isSelf) {
+      if (req.body.name !== undefined) {
+        updates.name = req.body.name;
+        changes.push({ field: 'name', old: user.name, new: req.body.name });
+      }
+      if (req.body.email !== undefined) {
+        updates.email = req.body.email;
+        changes.push({ field: 'email', old: user.email, new: req.body.email });
+      }
+    }
 
-        if (field === 'role' && parseInt(req.user.id) === parseInt(req.params.id)) {
+    // Only admin can update role and status of others
+    if (isAdmin) {
+      if (req.body.role !== undefined) {
+        if (isSelf) {
           return res.status(403).json({ success: false, message: 'Cannot update your own role' });
         }
+        updates.role = req.body.role;
+        changes.push({ field: 'role', old: user.role, new: req.body.role });
+      }
+      if (req.body.status !== undefined) {
+        updates.status = req.body.status;
+        changes.push({ field: 'status', old: user.status, new: req.body.status });
+      }
+    }
 
-        updates[field] = req.body[field];
-        changes.push({ field, old: user[field], new: req.body[field] });
+    // Handle password separately
+    let passwordChanged = false;
+    if (req.body.password !== undefined) {
+      if (req.body.password.length < 8) {
+        return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+      }
+
+      // If email is also being changed, the password is for confirmation only
+      if (req.body.email !== undefined && req.body.email !== user.email) {
+        const isMatch = await bcrypt.compare(req.body.password, user.password_hash);
+        if (!isMatch) {
+          return res.status(403).json({ success: false, message: 'Current password is incorrect' });
+        }
+      } else {
+        // Only changing password — hash and store it
+        const hash = await bcrypt.hash(req.body.password, 12);
+        updates.password_hash = hash;
+        passwordChanged = true;
+        changes.push({ field: 'password', old: null, new: 'changed' });
       }
     }
 
@@ -133,14 +187,17 @@ export const updateUser = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No valid fields to update' });
     }
 
-    const setClauses = Object.keys(updates).map(key => `${key} = ?`).join(', ');
-    const updateValues = Object.values(updates);
+    // Build dynamic query
+    const fields = Object.keys(updates);
+    const values = Object.values(updates);
+    const setClause = fields.map((f) => `${f} = ?`).join(', ');
 
     await pool.execute(
-      `UPDATE users SET ${setClauses} WHERE id = ?`,
-      [...updateValues, req.params.id],
+      `UPDATE users SET ${setClause} WHERE id = ?`,
+      [...values, targetId],
     );
 
+    // Log activity
     const oldData = {};
     const newData = {};
     for (const change of changes) {
@@ -148,87 +205,81 @@ export const updateUser = async (req, res, next) => {
       newData[change.field] = change.new;
     }
 
-    await logActivity(
-      req.user.id,
-      'update_user',
-      'user',
-      req.params.id,
-      oldData,
-      newData,
-      req.ip,
-    );
+    try {
+      await logActivity(req.user.id, 'update_user', 'user', targetId, oldData, newData, req.ip);
+    } catch (logErr) {
+      console.error('Activity log failed for updateUser:', logErr.message);
+    }
 
     const [updated] = await pool.execute(
       'SELECT id, name, email, role, status, last_seen, created_by, created_at, updated_at FROM users WHERE id = ?',
-      [req.params.id],
+      [targetId],
     );
 
     return res.status(200).json({
       success: true,
-      message: 'User updated successfully',
+      message: 'Profile updated successfully',
       data: updated[0],
     });
   } catch (err) {
+    console.error('updateUser ERROR:', err.message);
     next(err);
   }
 };
 
-export const updatePermissions = async (req, res, next) => {
+export const updatePermissions = async (req, res) => {
   try {
-    const { user_id, permissions } = req.body;
+    console.log('updatePermissions called');
+    console.log('Target user:', req.params.id);
+    console.log('Permissions:', req.body);
 
-    if (!user_id || !Array.isArray(permissions) || permissions.length === 0) {
-      return res.status(400).json({ success: false, message: 'user_id and permissions array are required' });
+    const user_id = req.params.id;
+    const { permissions } = req.body;
+
+    if (!permissions || !Array.isArray(permissions)) {
+      return res.status(400).json({
+        success: false,
+        message: 'permissions array required',
+      });
     }
 
-    const [userExists] = await pool.execute('SELECT id FROM users WHERE id = ?', [user_id]);
-    if (userExists.length === 0) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
+    // Clear existing permissions to avoid duplicates since ON DUPLICATE KEY UPDATE might not work if no unique constraint exists
+    await pool.execute('DELETE FROM roles_permissions WHERE user_id = ?', [user_id]);
 
+    // Insert each permission
     for (const perm of permissions) {
-      if (!perm.module_name) {
-        return res.status(400).json({ success: false, message: 'module_name is required for each permission entry' });
-      }
+      await pool.execute(
+        `INSERT INTO roles_permissions (user_id, module_name, can_view, can_create, can_edit, can_delete)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          user_id,
+          perm.module_name,
+          perm.can_view ? 1 : 0,
+          perm.can_create ? 1 : 0,
+          perm.can_edit ? 1 : 0,
+          perm.can_delete ? 1 : 0,
+        ],
+      );
     }
 
-    await Promise.all(permissions.map((perm) => {
-      const { module_name, can_view, can_create, can_edit, can_delete } = perm;
-
-      return pool.execute(
-        `INSERT INTO roles_permissions (user_id, module_name, can_view, can_create, can_edit, can_delete)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-         can_view = VALUES(can_view),
-         can_create = VALUES(can_create),
-         can_edit = VALUES(can_edit),
-         can_delete = VALUES(can_delete)`,
-        [user_id, module_name, can_view ?? false, can_create ?? false, can_edit ?? false, can_delete ?? false],
-      );
-    }));
-
-    await logActivity(
-      req.user.id,
-      'update_permissions',
-      'user',
-      user_id,
-      null,
-      { permissions },
-      req.ip,
-    );
-
-    const [updatedPerms] = await pool.execute(
-      'SELECT id, user_id, module_name, can_view, can_create, can_edit, can_delete FROM roles_permissions WHERE user_id = ?',
+    const [updated] = await pool.execute(
+      'SELECT * FROM roles_permissions WHERE user_id = ?',
       [user_id],
     );
 
-    return res.status(200).json({
+    console.log('Permissions saved:', updated.length, 'modules');
+
+    return res.json({
       success: true,
-      message: 'Permissions updated successfully',
-      data: updatedPerms,
+      message: 'Permissions saved successfully',
+      data: mapPermissions(updated),
     });
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    console.error('updatePermissions ERROR:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -432,13 +483,22 @@ export const transferSuperAdmin = async (req, res, next) => {
   }
 };
 
+const mapPermissions = (rows) =>
+  rows.map((r) => ({
+    ...r,
+    can_view: Boolean(r.can_view),
+    can_create: Boolean(r.can_create),
+    can_edit: Boolean(r.can_edit),
+    can_delete: Boolean(r.can_delete),
+  }));
+
 export const getUserPermissions = async (req, res, next) => {
   try {
     const [rows] = await pool.execute(
       'SELECT id, user_id, module_name, can_view, can_create, can_edit, can_delete FROM roles_permissions WHERE user_id = ?',
       [req.params.id],
     );
-    return res.status(200).json({ success: true, data: rows });
+    return res.status(200).json({ success: true, data: mapPermissions(rows) });
   } catch (err) {
     next(err);
   }
@@ -464,7 +524,7 @@ export const getMyPermissions = async (req, res, next) => {
       return res.status(200).json({ success: true, data: defaults });
     }
 
-    return res.status(200).json({ success: true, data: rows });
+    return res.status(200).json({ success: true, data: mapPermissions(rows) });
   } catch (err) {
     next(err);
   }

@@ -91,6 +91,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ permissions });
   },
   logout: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('tnt_token');
+      localStorage.removeItem('tnt_user');
+      localStorage.removeItem('tnt_permissions');
+    }
     set({ user: null, token: null, permissions: [] });
   },
   isAuthenticated: () => {
@@ -99,11 +104,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return !!(state.token || stored);
   },
   hasPermission: (module, action) => {
-    const state = get();
-    if (state.user?.role === 'super_admin') return true;
-    const perm = state.permissions.find((p) => p.module_name === module);
-    if (!perm) return false;
-    return perm[action] === true;
+    const { user, permissions } = get();
+    
+    if (user?.role === 'super_admin') return true;
+    if (user?.role === 'manager') return true;
+    
+    if (!permissions || permissions.length === 0) {
+      if (module === 'dashboard') return true;
+      if (module === 'announcements') return true;
+      return false;
+    }
+    
+    const modulePerm = permissions.find((p) => p.module_name === module);
+    if (!modulePerm) return false;
+    
+    return Boolean(modulePerm[action]);
   },
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   setSidebarMobileOpen: (open) => set({ sidebarMobileOpen: open }),

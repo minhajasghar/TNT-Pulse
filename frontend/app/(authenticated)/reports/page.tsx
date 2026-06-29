@@ -136,7 +136,7 @@ function ProjectReport({ params }: { params: string }) {
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Projects by Status</h3>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
-              <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}>
                 {statusData.map((_: unknown, i: number) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip />
@@ -291,7 +291,7 @@ function TaskReport({ params }: { params: string }) {
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Tasks by Priority</h3>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
-              <Pie data={priorityData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <Pie data={priorityData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}>
                 {priorityData.map((_: unknown, i: number) => <Cell key={i} fill={['#9ca3af', '#3b82f6', '#ef4444'][i] || PIE_COLORS[i]} />)}
               </Pie>
               <Tooltip />
@@ -303,7 +303,7 @@ function TaskReport({ params }: { params: string }) {
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Tasks by Status</h3>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
-              <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}>
                 {statusData.map((_: unknown, i: number) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip />

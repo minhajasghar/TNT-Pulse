@@ -39,9 +39,7 @@ export default function LoginPage() {
       const { token, user, permissions } = res.data.data;
       setToken(token);
       setUser(user);
-      if (permissions) {
-        setPermissions(permissions);
-      }
+      setPermissions(permissions || []);
       router.push('/dashboard');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Login failed. Please try again.';

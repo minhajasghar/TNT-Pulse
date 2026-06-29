@@ -141,12 +141,6 @@ export default function SettingsPage() {
     },
   });
 
-  const passwordMutation = useMutation({
-    mutationFn: async (_data: PasswordForm) => {
-      await new Promise((r) => setTimeout(r, 500));
-    },
-  });
-
   const notifMutation = useMutation({
     mutationFn: async (data: NotifForm) => {
       await api.put(`/api/users/${user?.id}`, data);
@@ -169,53 +163,45 @@ export default function SettingsPage() {
     setExporting(false);
   };
 
-  if (!isAdmin) {
-    return (
-      <div className="text-center py-16">
-        <AlertTriangle size={48} className="mx-auto text-gray-300 mb-3" />
-        <h3 className="text-lg font-semibold text-gray-900">Access Denied</h3>
-        <p className="text-sm text-gray-500">Only managers and admins can access Settings.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-2xl space-y-8">
       <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">My Profile</h2>
-        <form onSubmit={profileForm.handleSubmit((d) => profileMutation.mutate(d))} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-            <input {...profileForm.register('name')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
-            {profileForm.formState.errors.name && <p className="text-xs text-red-500 mt-1">{profileForm.formState.errors.name.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <div className="flex gap-2">
-              <input
-                value={newEmail}
-                onChange={(e) => { setNewEmail(e.target.value); setEmailError(''); }}
-                placeholder="Enter new email"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-              />
-              <button
-                type="button"
-                onClick={handleUpdateEmail}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg whitespace-nowrap"
-              >
-                <Mail size={16} /> Update Email
-              </button>
+      {isAdmin && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">My Profile</h2>
+          <form onSubmit={profileForm.handleSubmit((d) => profileMutation.mutate(d))} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <input {...profileForm.register('name')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+              {profileForm.formState.errors.name && <p className="text-xs text-red-500 mt-1">{profileForm.formState.errors.name.message}</p>}
             </div>
-            {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
-          </div>
-          <button type="submit" disabled={profileMutation.isPending} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-semibold rounded-lg">
-            {profileMutation.isPending && <Loader2 size={16} className="animate-spin" />}
-            <Save size={16} /> Save Changes
-          </button>
-        </form>
-      </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <div className="flex gap-2">
+                <input
+                  value={newEmail}
+                  onChange={(e) => { setNewEmail(e.target.value); setEmailError(''); }}
+                  placeholder="Enter new email"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleUpdateEmail}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg whitespace-nowrap"
+                >
+                  <Mail size={16} /> Update Email
+                </button>
+              </div>
+              {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
+            </div>
+            <button type="submit" disabled={profileMutation.isPending} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-semibold rounded-lg">
+              {profileMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+              <Save size={16} /> Save Changes
+            </button>
+          </form>
+        </div>
+      )}
 
       {showEmailConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -252,12 +238,23 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* Change Password — visible to ALL users */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h2>
-        <form onSubmit={passwordForm.handleSubmit((d) => passwordMutation.mutate(d))} className="space-y-4">
+        <form onSubmit={passwordForm.handleSubmit(async (d) => {
+          try {
+            await api.put(`/api/users/${user?.id}`, { old_password: d.old_password, password: d.new_password });
+            toast({ message: 'Password updated successfully', type: 'success' });
+            passwordForm.reset();
+          } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to update password';
+            toast({ message: msg, type: 'error' });
+          }
+        })} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
             <input type="password" {...passwordForm.register('old_password')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+            {passwordForm.formState.errors.old_password && <p className="text-xs text-red-500 mt-1">{passwordForm.formState.errors.old_password.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
@@ -269,38 +266,40 @@ export default function SettingsPage() {
             <input type="password" {...passwordForm.register('confirm_password')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
             {passwordForm.formState.errors.confirm_password && <p className="text-xs text-red-500 mt-1">{passwordForm.formState.errors.confirm_password.message}</p>}
           </div>
-          <button type="submit" disabled={passwordMutation.isPending} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-semibold rounded-lg">
-            {passwordMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+          <button type="submit" disabled={passwordForm.formState.isSubmitting} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-semibold rounded-lg">
+            {passwordForm.formState.isSubmitting && <Loader2 size={16} className="animate-spin" />}
             <Save size={16} /> Update Password
           </button>
         </form>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Notification Preferences</h2>
-        <form onSubmit={notifForm.handleSubmit((d) => notifMutation.mutate(d))} className="space-y-4">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" {...notifForm.register('email_enabled')} className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-            <span className="text-sm text-gray-700">Email notifications enabled</span>
-          </label>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" {...notifForm.register('in_app_enabled')} className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-            <span className="text-sm text-gray-700">In-app notifications enabled</span>
-          </label>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Days before deadline to send alert</label>
-            <input
-              type="number"
-              {...notifForm.register('alert_days_before_deadline', { valueAsNumber: true })}
-              className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <button type="submit" disabled={notifMutation.isPending} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-semibold rounded-lg">
-            {notifMutation.isPending && <Loader2 size={16} className="animate-spin" />}
-            <Save size={16} /> Save Preferences
-          </button>
-        </form>
-      </div>
+      {isAdmin && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Notification Preferences</h2>
+          <form onSubmit={notifForm.handleSubmit((d) => notifMutation.mutate(d))} className="space-y-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" {...notifForm.register('email_enabled')} className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+              <span className="text-sm text-gray-700">Email notifications enabled</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" {...notifForm.register('in_app_enabled')} className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+              <span className="text-sm text-gray-700">In-app notifications enabled</span>
+            </label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Days before deadline to send alert</label>
+              <input
+                type="number"
+                {...notifForm.register('alert_days_before_deadline', { valueAsNumber: true })}
+                className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <button type="submit" disabled={notifMutation.isPending} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-semibold rounded-lg">
+              {notifMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+              <Save size={16} /> Save Preferences
+            </button>
+          </form>
+        </div>
+      )}
 
       {isSuperAdmin && (
         <div className="bg-white rounded-xl shadow-sm border border-red-200 p-6">

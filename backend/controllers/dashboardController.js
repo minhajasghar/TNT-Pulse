@@ -3,64 +3,55 @@ import pool from '../config/db.js';
 export const getAdminDashboard = async (req, res, next) => {
   try {
     const [
-      totalProjects,
-      activeProjects,
-      completedProjects,
-      onHoldProjects,
-      overdueProjects,
-      totalUsers,
-      totalTasks,
-      overdueTasks,
-      projectsByStatus,
-      projectsByPriority,
-      upcomingDeadlines,
-      teamWorkload,
-      recentActivity,
+      overviewResult,
+      projectsByStatusResult,
+      projectsByPriorityResult,
+      upcomingDeadlinesResult,
+      teamWorkloadResult,
+      recentActivityResult,
     ] = await Promise.all([
-      pool.execute('SELECT COUNT(*) AS count FROM projects'),
-      pool.execute("SELECT COUNT(*) AS count FROM projects WHERE status = 'in_progress'"),
-      pool.execute("SELECT COUNT(*) AS count FROM projects WHERE status = 'completed'"),
-      pool.execute("SELECT COUNT(*) AS count FROM projects WHERE status = 'on_hold'"),
-      pool.execute("SELECT COUNT(*) AS count FROM projects WHERE deadline < CURDATE() AND status != 'completed'"),
-      pool.execute("SELECT COUNT(*) AS count FROM users WHERE status = 'active'"),
-      pool.execute('SELECT COUNT(*) AS count FROM tasks'),
-      pool.execute("SELECT COUNT(*) AS count FROM tasks WHERE due_date < CURDATE() AND status != 'done'"),
       pool.execute(`
-        SELECT status, COUNT(*) AS count
+        SELECT 
+          COUNT(*) as total_projects,
+          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as active_projects,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_projects,
+          SUM(CASE WHEN status = 'on_hold' THEN 1 ELSE 0 END) as on_hold_projects,
+          SUM(CASE WHEN deadline < CURDATE() AND status != 'completed' THEN 1 ELSE 0 END) as overdue_projects
         FROM projects
+        WHERE deleted_at IS NULL
+      `),
+      pool.execute(`
+        SELECT status, COUNT(*) as count
+        FROM projects
+        WHERE deleted_at IS NULL
         GROUP BY status
-        UNION SELECT 'planning', 0
-        UNION SELECT 'in_progress', 0
-        UNION SELECT 'review', 0
-        UNION SELECT 'completed', 0
-        UNION SELECT 'on_hold', 0
       `),
       pool.execute(`
-        SELECT priority, COUNT(*) AS count
+        SELECT priority, COUNT(*) as count
         FROM projects
+        WHERE deleted_at IS NULL
         GROUP BY priority
-        UNION SELECT 'low', 0
-        UNION SELECT 'medium', 0
-        UNION SELECT 'high', 0
-        UNION SELECT 'critical', 0
       `),
       pool.execute(`
-        SELECT p.id, p.name, p.deadline,
-               DATEDIFF(p.deadline, CURDATE()) AS days_remaining,
-               (SELECT COUNT(*) FROM project_members WHERE project_id = p.id) AS member_count
-        FROM projects p
-        WHERE p.deadline BETWEEN CURDATE() AND CURDATE() + INTERVAL 7 DAY
-          AND p.status != 'completed'
-        ORDER BY p.deadline ASC
+        SELECT id, name, deadline,
+               DATEDIFF(deadline, CURDATE()) as days_remaining
+        FROM projects
+        WHERE deleted_at IS NULL
+          AND status != 'completed'
+          AND deadline >= CURDATE()
+        ORDER BY deadline ASC
         LIMIT 5
       `),
       pool.execute(`
-        SELECT u.id, u.name, u.role,
-               (SELECT COUNT(*) FROM tasks WHERE assigned_to = u.id AND status != 'done') AS active_tasks_count,
-               (SELECT COUNT(*) FROM tasks WHERE assigned_to = u.id AND status = 'done') AS completed_tasks_count,
-               (SELECT COUNT(*) FROM tasks WHERE assigned_to = u.id AND due_date < CURDATE() AND status != 'done') AS overdue_tasks_count
+        SELECT 
+          u.id, u.name, u.role,
+          COUNT(CASE WHEN t.status != 'done' THEN 1 END) as active_tasks_count,
+          COUNT(CASE WHEN t.status = 'done' THEN 1 END) as completed_tasks_count,
+          COUNT(CASE WHEN t.due_date < CURDATE() AND t.status != 'done' THEN 1 END) as overdue_tasks_count
         FROM users u
+        LEFT JOIN tasks t ON t.assigned_to = u.id
         WHERE u.status = 'active'
+        GROUP BY u.id
         ORDER BY active_tasks_count DESC
       `),
       pool.execute(`
@@ -72,38 +63,43 @@ export const getAdminDashboard = async (req, res, next) => {
       `),
     ]);
 
-    const statusAgg = {};
-    for (const row of projectsByStatus[0]) {
-      statusAgg[row.status] = (statusAgg[row.status] || 0) + row.count;
-    }
-    const allStatuses = ['planning', 'in_progress', 'review', 'completed', 'on_hold'];
-    const projectsByStatusResult = allStatuses.map(status => ({ status, count: statusAgg[status] || 0 }));
+    const overview = overviewResult[0][0] || {
+      total_projects: 0, active_projects: 0, completed_projects: 0,
+      on_hold_projects: 0, overdue_projects: 0,
+    };
 
-    const priorityAgg = {};
-    for (const row of projectsByPriority[0]) {
-      priorityAgg[row.priority] = (priorityAgg[row.priority] || 0) + row.count;
+    const allStatuses = ['planning', 'in_progress', 'review', 'completed', 'on_hold'];
+    const statusMap = {};
+    for (const row of projectsByStatusResult[0]) {
+      statusMap[row.status] = row.count;
     }
+    const projectsByStatus = allStatuses.map(status => ({ status, count: statusMap[status] || 0 }));
+
     const allPriorities = ['low', 'medium', 'high', 'critical'];
-    const projectsByPriorityResult = allPriorities.map(priority => ({ priority, count: priorityAgg[priority] || 0 }));
+    const priorityMap = {};
+    for (const row of projectsByPriorityResult[0]) {
+      priorityMap[row.priority] = row.count;
+    }
+    const projectsByPriority = allPriorities.map(priority => ({ priority, count: priorityMap[priority] || 0 }));
+
+    const [totalUsers] = await pool.execute("SELECT COUNT(*) AS count FROM users WHERE status = 'active'");
+    const [totalTasks] = await pool.execute('SELECT COUNT(*) AS count FROM tasks');
+    const [overdueTasks] = await pool.execute("SELECT COUNT(*) AS count FROM tasks WHERE due_date < CURDATE() AND status != 'done'");
 
     return res.status(200).json({
       success: true,
       data: {
         overview: {
-          total_projects: totalProjects[0][0].count,
-          active_projects: activeProjects[0][0].count,
-          completed_projects: completedProjects[0][0].count,
-          on_hold_projects: onHoldProjects[0][0].count,
-          overdue_projects: overdueProjects[0][0].count,
-          total_users: totalUsers[0][0].count,
-          total_tasks: totalTasks[0][0].count,
-          overdue_tasks: overdueTasks[0][0].count,
+          ...overview,
+          total_users: totalUsers[0].count,
+          total_tasks: totalTasks[0].count,
+          overdue_tasks: overdueTasks[0].count,
         },
-        projects_by_status: projectsByStatusResult,
-        projects_by_priority: projectsByPriorityResult,
-        upcoming_deadlines: upcomingDeadlines[0],
-        team_workload: teamWorkload[0],
-        recent_activity: recentActivity[0],
+        projects_by_status: projectsByStatus,
+        projects_by_priority: projectsByPriority,
+        upcoming_deadlines: upcomingDeadlinesResult[0],
+        team_workload: teamWorkloadResult[0],
+        recent_activity: recentActivityResult[0],
       },
     });
   } catch (err) {

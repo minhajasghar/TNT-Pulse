@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/layout/Sidebar'
 import Navbar from '@/components/layout/Navbar'
 import { useAuthStore } from '@/lib/store'
@@ -10,54 +11,39 @@ export default function AuthenticatedLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [isChecking, setIsChecking] = useState(true)
-  const { permissions } = useAuthStore()
+  const router = useRouter()
+  const [isAuthed, setIsAuthed] = useState(false)
 
   useEffect(() => {
-    const raw = localStorage.getItem('tnt_token')
-    const token = raw && raw !== 'null' && raw !== 'undefined' ? raw : null
+    const token = localStorage.getItem('tnt_token')
     if (!token) {
-      localStorage.removeItem('tnt_token')
-      localStorage.removeItem('tnt_user')
-      localStorage.removeItem('tnt_permissions')
-      window.location.href = '/login'
-    } else {
-      const store = useAuthStore.getState()
-      if (!store.token) {
-        store.setToken(token)
-      }
-      if (!store.user) {
-        const rawUser = localStorage.getItem('tnt_user')
-        if (rawUser) {
-          try {
-            store.setUser(JSON.parse(rawUser))
-          } catch {}
-        }
-      }
-      setIsChecking(false)
+      window.location.replace('/login')
+      return
     }
+    const store = useAuthStore.getState()
+    if (!store.token) {
+      store.setToken(token)
+    }
+    if (!store.user) {
+      const rawUser = localStorage.getItem('tnt_user')
+      if (rawUser) {
+        try {
+          store.setUser(JSON.parse(rawUser))
+        } catch {}
+      }
+    }
+    setIsAuthed(true)
   }, [])
 
   useEffect(() => {
-    if (!isChecking && permissions.length === 0) {
-      const store = useAuthStore.getState()
-      const rawPerms = localStorage.getItem('tnt_permissions')
-      if (rawPerms) {
-        try {
-          const parsed = JSON.parse(rawPerms)
-          if (parsed.length > 0) {
-            return
-          }
-        } catch {}
-      }
-      api.get('/api/users/me/permissions').then((res) => {
-        store.setPermissions(res.data.data)
-      }).catch(() => {})
-    }
-  }, [isChecking, permissions.length])
+    if (!isAuthed) return
+    api.get('/api/users/me/permissions').then((res) => {
+      useAuthStore.getState().setPermissions(res.data.data)
+    }).catch(() => {})
+  }, [isAuthed])
 
-  if (isChecking) {
-    return <div className="min-h-screen bg-white" />
+  if (!isAuthed) {
+    return <div className="min-h-screen bg-gray-50" />
   }
 
   return (

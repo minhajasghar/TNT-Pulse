@@ -92,32 +92,46 @@ function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Projects by Status</h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie data={statusPieData} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={100} label={(e: any) => `${e?.payload?.status?.replace('_', ' ') || ''}: ${e?.value}`}>
-                {statusPieData.map((_, i) => (
-                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+          {statusPieData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[280px] text-gray-400">
+              <p className="text-sm">No project data yet.</p>
+              <p className="text-xs mt-1">Create your first project to see analytics.</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie data={statusPieData} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={100} label={(e: any) => `${e?.payload?.status?.replace('_', ' ') || ''}: ${e?.value}`}>
+                  {statusPieData.map((_, i) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Projects by Priority</h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={priorityBarData}>
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                {priorityBarData.map((_, i) => (
-                  <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          {priorityBarData.every((d) => d.count === 0) ? (
+            <div className="flex flex-col items-center justify-center h-[280px] text-gray-400">
+              <p className="text-sm">No project data yet.</p>
+              <p className="text-xs mt-1">Create your first project to see analytics.</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={priorityBarData}>
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  {priorityBarData.map((_, i) => (
+                    <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 

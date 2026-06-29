@@ -21,9 +21,8 @@ export const registerUser = async (req, res, next) => {
       ? providedPassword
       : crypto.randomBytes(4).toString('hex');
 
-    const validRoles = ['super_admin', 'frontend_developer', 'backend_developer', 'full_stack_developer', 'mobile_developer', 'ui_ux_designer', 'graphic_designer', 'project_manager', 'team_lead', 'qa_engineer', 'devops_engineer', 'ai_ml_engineer', 'intern', 'manager', 'developer', 'designer', 'viewer'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ success: false, message: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+    if (role.length < 1) {
+      return res.status(400).json({ success: false, message: 'Role is required' });
     }
 
     const [existing] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
@@ -86,15 +85,10 @@ export const loginUser = async (req, res, next) => {
 
     await pool.execute('UPDATE users SET last_seen = NOW() WHERE id = ?', [user.id]);
 
-    const [permRows] = await pool.execute(
+    const [permissions] = await pool.execute(
       'SELECT module_name, can_view, can_create, can_edit, can_delete FROM roles_permissions WHERE user_id = ?',
       [user.id],
     );
-
-    const DEFAULT_MODULES = ['projects', 'tasks', 'team', 'documents', 'reports', 'activity', 'announcements'];
-    const permissions = permRows.length > 0
-      ? permRows
-      : DEFAULT_MODULES.map((m) => ({ module_name: m, can_view: true, can_create: false, can_edit: false, can_delete: false }));
 
     const token = jwt.sign(
       { id: user.id, name: user.name, email: user.email, role: user.role },
