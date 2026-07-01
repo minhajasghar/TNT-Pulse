@@ -56,7 +56,7 @@ Built entirely in-house by the TNT Innovations development team.
 
 ### 🔁 Subscription Tracking
 - Track domains, hosting, APIs, SSL certificates, software licenses, databases
-- Add subscriptions directly from project creation or project detail page
+- Add multiple subscriptions at once from a single dedicated flow — select project, add all services(domain, hosting, SSL, APIs) in one session
 - Link subscriptions to one or more projects
 - **By Project view** — see all subscriptions grouped under their project
 - Cost tracking with billing cycle (monthly / quarterly / yearly / one-time)
