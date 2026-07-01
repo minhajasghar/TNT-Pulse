@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, X, Plus, Search, Users, Upload } from 'lucide-react';
+import { Loader2, X, Plus, Search, Users, Upload, FolderKanban, Calendar, CreditCard, Bell } from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import Badge from '@/components/ui/Badge';

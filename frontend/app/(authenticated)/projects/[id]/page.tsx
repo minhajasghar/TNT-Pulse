@@ -8,14 +8,25 @@ import {
   ArrowLeft, Users, Calendar, Clock, 
   CheckCircle2, AlertCircle, PlayCircle, Loader2,
   FolderKanban, Trash2, Edit, Plus, FileText,
-  Upload, Download, X
+  Upload, Download, X, Globe, Server, Plug, Shield, Key, Database, Mail, Package, Info
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { useToast } from '@/components/ui/Toast';
 import Badge from '@/components/ui/Badge';
 import RoleSelector from '@/components/ui/RoleSelector';
-import SubscriptionModal from '@/components/subscriptions/SubscriptionModal';
+import Link from 'next/link';
+
+const CATEGORY_ICONS = {
+  domain: Globe,
+  hosting: Server,
+  api_service: Plug,
+  ssl_certificate: Shield,
+  software_license: Key,
+  database: Database,
+  email_service: Mail,
+  other: Package,
+};
 
 export default function ProjectDetailsPage() {
   const params = useParams();
@@ -641,38 +652,12 @@ function RequirementsTab({ project, isAdmin }: { project: any, isAdmin: boolean 
 function SubscriptionsTab({ project, isAdmin }: { project: any, isAdmin: boolean }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState<'link' | 'create'>('link');
-  const [searchLink, setSearchLink] = useState('');
 
   const { data: linkedSubs, isLoading } = useQuery({
     queryKey: ['project-subscriptions', String(project.id)],
     queryFn: async () => {
       const res = await api.get(`/api/subscriptions/project/${project.id}`);
       return res.data.subscriptions;
-    }
-  });
-
-  const { data: allSubs } = useQuery({
-    queryKey: ['subscriptions', 'all', 'all'],
-    queryFn: async () => {
-      const res = await api.get('/api/subscriptions');
-      return res.data.subscriptions;
-    },
-    enabled: isAdmin && showModal && modalMode === 'link'
-  });
-
-  const linkMutation = useMutation({
-    mutationFn: async (subId: number) => {
-      await api.post(`/api/subscriptions/${subId}/projects`, { project_id: project.id });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['project-subscriptions', String(project.id)] });
-      toast({ message: 'Subscription linked successfully', type: 'success' });
-      setShowModal(false);
-    },
-    onError: (err: any) => {
-      toast({ message: err.response?.data?.message || 'Failed to link subscription', type: 'error' });
     }
   });
 
@@ -688,21 +673,21 @@ function SubscriptionsTab({ project, isAdmin }: { project: any, isAdmin: boolean
 
   if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-indigo-600" size={32} /></div>;
 
-  const availableToLink = allSubs?.filter((s: any) => !linkedSubs?.find((ls: any) => ls.id === s.id)) || [];
-  const filteredAvailable = availableToLink.filter((s: any) => s.name.toLowerCase().includes(searchLink.toLowerCase()));
-
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
+        <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
+        <p className="text-blue-700 text-sm">
+          To add subscriptions for this project, go to the  
+          <Link href="/subscriptions" className="font-medium underline mx-1">
+            Subscriptions
+          </Link>
+          section and select this project.
+        </p>
+      </div>
+
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium text-gray-900">Linked Subscriptions</h3>
-        {isAdmin && (
-          <button 
-            onClick={() => { setModalMode('link'); setShowModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus size={16} /> Link Subscription
-          </button>
-        )}
       </div>
 
       {linkedSubs?.length === 0 ? (
@@ -772,87 +757,6 @@ function SubscriptionsTab({ project, isAdmin }: { project: any, isAdmin: boolean
             );
           })}
         </div>
-      )}
-
-      {showModal && isAdmin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md my-8 overflow-hidden">
-            <div className="flex items-center border-b border-gray-200">
-              <button 
-                onClick={() => setModalMode('link')}
-                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${modalMode === 'link' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-              >
-                Link Existing
-              </button>
-              <button 
-                onClick={() => setModalMode('create')}
-                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${modalMode === 'create' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-              >
-                Create New
-              </button>
-            </div>
-
-            <div className="p-6">
-              {modalMode === 'link' ? (
-                <div className="space-y-4">
-                  <input 
-                    type="text" 
-                    placeholder="Search subscriptions..." 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                    value={searchLink}
-                    onChange={(e) => setSearchLink(e.target.value)}
-                  />
-                  <div className="max-h-60 overflow-y-auto space-y-2">
-                    {filteredAvailable.map((s: any) => (
-                      <button 
-                        key={s.id}
-                        onClick={() => linkMutation.mutate(s.id)}
-                        disabled={linkMutation.isPending}
-                        className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-colors flex justify-between items-center"
-                      >
-                        <div>
-                          <div className="font-medium text-sm text-gray-900">{s.name}</div>
-                          <div className="text-xs text-gray-500">{s.category.replace('_', ' ')}</div>
-                        </div>
-                        <Plus size={16} className="text-indigo-600" />
-                      </button>
-                    ))}
-                    {filteredAvailable.length === 0 && (
-                      <p className="text-sm text-gray-500 text-center py-4">No subscriptions found to link.</p>
-                    )}
-                  </div>
-                  <div className="pt-4 flex justify-end">
-                    <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <p className="text-sm text-gray-600 mb-4">You will be redirected to create a new subscription.</p>
-                  <div className="flex justify-center gap-3">
-                    <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-                    <button 
-                      onClick={() => {
-                        setShowModal(false);
-                      }}
-                      className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                    >
-                      Continue
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modalMode === 'create' && showModal === false && (
-        <SubscriptionModal 
-          isOpen={true} 
-          onClose={() => setModalMode('link')} 
-          preselectedProject={project}
-          subscription={null}
-        />
       )}
     </div>
   );

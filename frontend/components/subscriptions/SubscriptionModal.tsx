@@ -2,9 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, Search } from 'lucide-react';
+import { X, Search, FolderKanban } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+
+const CURRENCIES = [
+  { value: 'USD', label: 'USD — US Dollar ($)' },
+  { value: 'PKR', label: 'PKR — Pakistani Rupee (₨)' },
+  { value: 'EUR', label: 'EUR — Euro (€)' },
+  { value: 'GBP', label: 'GBP — British Pound (£)' },
+  { value: 'AED', label: 'AED — UAE Dirham (د.إ)' },
+  { value: 'SAR', label: 'SAR — Saudi Riyal (﷼)' },
+];
+
+const BILLING_CYCLES = [
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'yearly', label: 'Yearly' },
+  { value: 'one_time', label: 'One Time' },
+];
 
 interface SubscriptionModalProps {
   isOpen: boolean;
@@ -130,9 +146,9 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, prese
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl my-8">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden shadow-xl my-8">
+        <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-gray-100">
           <h2 className="text-xl font-semibold text-gray-900">
             {isEditing ? 'Edit Subscription' : 'New Subscription'}
           </h2>
@@ -141,7 +157,7 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, prese
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
@@ -180,35 +196,33 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, prese
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                  <select name="currency" value={formData.currency} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-                    <option value="USD">USD</option>
-                    <option value="PKR">PKR</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
+                  <select name="currency" value={formData.currency || 'USD'} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white text-sm">
+                    {CURRENCIES.map(c => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Billing Cycle</label>
-                <select name="billing_cycle" value={formData.billing_cycle} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
-                  <option value="yearly">Yearly</option>
-                  <option value="one_time">One-time</option>
+                <select name="billing_cycle" value={formData.billing_cycle || 'monthly'} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white text-sm">
+                  {BILLING_CYCLES.map(c => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
                 </select>
               </div>
             </div>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="min-w-0">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
-                  <input required type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
+                  <input required type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="w-full min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date *</label>
-                  <input required type="date" name="expiry_date" value={formData.expiry_date} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
+                  <input required type="date" name="expiry_date" value={formData.expiry_date} onChange={handleChange} className="w-full min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
                 </div>
               </div>
 
@@ -224,9 +238,9 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, prese
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Account Email</label>
-                <input type="email" name="account_email" value={formData.account_email} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Email for login" />
-                <p className="text-xs text-gray-500 mt-1">Email associated with this account/subscription</p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Account / Alert Emails</label>
+                <input type="text" name="account_email" value={formData.account_email} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="email1@domain.com, email2@domain.com" />
+                <p className="text-xs text-gray-500 mt-1">Separate multiple emails with commas</p>
               </div>
 
               <div>
@@ -240,51 +254,67 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, prese
             <div className="mt-6 pt-6 border-t border-gray-200">
               <h3 className="text-sm font-medium text-gray-700 mb-2">Link Projects (Optional)</h3>
               
-              {selectedProjects.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {selectedProjects.map((p: any) => (
-                    <span key={p.id} className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium">
-                      {p.name}
-                      <button type="button" onClick={() => toggleProject(p)} className="hover:bg-indigo-200 rounded-full p-0.5">
-                        <X size={14} />
-                      </button>
-                    </span>
-                  ))}
+              {preselectedProject ? (
+                <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 w-fit mb-3">
+                  <FolderKanban className="w-4 h-4 text-indigo-500" />
+                  <span className="text-sm text-indigo-700 font-medium">
+                    {preselectedProject.name}
+                  </span>
+                  <span className="text-xs text-indigo-400">
+                    (auto-linked)
+                  </span>
                 </div>
+              ) : (
+                selectedProjects.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {selectedProjects.map((p: any) => (
+                      <span key={p.id} className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium">
+                        {p.name}
+                        <button type="button" onClick={() => toggleProject(p)} className="hover:bg-indigo-200 rounded-full p-0.5">
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )
               )}
 
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search projects to link..." 
-                  className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                  value={projectSearch}
-                  onChange={(e) => setProjectSearch(e.target.value)}
-                />
-              </div>
+              {!preselectedProject && (
+                <>
+                  <div className="relative">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Search projects to link..." 
+                      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                      value={projectSearch}
+                      onChange={(e) => setProjectSearch(e.target.value)}
+                    />
+                  </div>
 
-              {projectSearch && filteredProjects.length > 0 && (
-                <div className="mt-2 border border-gray-200 rounded-lg max-h-32 overflow-y-auto bg-white shadow-sm absolute w-full max-w-xl z-10">
-                  {filteredProjects.map((p: any) => (
-                    <button 
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        toggleProject(p);
-                        setProjectSearch('');
-                      }}
-                      className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm text-gray-700"
-                    >
-                      {p.name}
-                    </button>
-                  ))}
-                </div>
+                  {projectSearch && filteredProjects.length > 0 && (
+                    <div className="mt-2 border border-gray-200 rounded-lg max-h-32 overflow-y-auto bg-white shadow-sm absolute w-full max-w-xl z-10">
+                      {filteredProjects.map((p: any) => (
+                        <button 
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            toggleProject(p);
+                            setProjectSearch('');
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm text-gray-700"
+                        >
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
 
-          <div className="mt-8 flex justify-end gap-3 pt-6 border-t border-gray-200">
+          <div className="flex-shrink-0 mt-8 flex justify-end gap-3 pt-6 border-t border-gray-100">
             <button 
               type="button" 
               onClick={onClose}

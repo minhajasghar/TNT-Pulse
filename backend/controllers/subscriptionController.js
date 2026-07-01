@@ -346,3 +346,81 @@ export const getExpiringStats = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error retrieving stats' });
   }
 };
+
+export const getSubscriptionsByProject = async (req, res) => {
+  try {
+    const isSuperOrManager = ['super_admin', 'manager'].includes(req.user.role);
+    
+    let query = `
+      SELECT 
+        p.id as project_id,
+        p.name as project_name,
+        p.status as project_status,
+        s.*,
+        DATEDIFF(s.expiry_date, CURDATE()) as days_remaining
+      FROM projects p
+      JOIN subscription_projects sp ON sp.project_id = p.id
+      JOIN subscriptions s ON s.id = sp.subscription_id
+      WHERE p.deleted_at IS NULL
+    `;
+    const params = [];
+
+    if (!isSuperOrManager) {
+      query += ` AND p.id IN (SELECT project_id FROM project_members WHERE user_id = ?) `;
+      params.push(req.user.id);
+    }
+
+    query += ` ORDER BY p.name ASC, s.expiry_date ASC `;
+
+    const [rows] = await pool.execute(query, params);
+
+    const grouped = {};
+    rows.forEach(row => {
+      if (!grouped[row.project_id]) {
+        grouped[row.project_id] = {
+          project_id: row.project_id,
+          project_name: row.project_name,
+          project_status: row.project_status,
+          subscriptions: []
+        };
+      }
+      grouped[row.project_id].subscriptions.push({
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        provider: row.provider,
+        expiry_date: row.expiry_date,
+        days_remaining: row.days_remaining,
+        cost: row.cost,
+        currency: row.currency,
+        billing_cycle: row.billing_cycle,
+        auto_renew: row.auto_renew,
+        status: row.status
+      });
+    });
+
+    let unlinkedRows = [];
+    if (isSuperOrManager) {
+      const [uRows] = await pool.execute(`
+        SELECT s.*, DATEDIFF(s.expiry_date, CURDATE()) as days_remaining
+        FROM subscriptions s
+        WHERE s.id NOT IN (
+          SELECT subscription_id FROM subscription_projects
+        )
+      `);
+      unlinkedRows = uRows;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        grouped: Object.values(grouped),
+        unlinked: unlinkedRows
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting subscriptions by project:', error);
+    res.status(500).json({ success: false, message: 'Server error retrieving subscriptions by project' });
+  }
+};

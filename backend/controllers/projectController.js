@@ -22,6 +22,8 @@ export const createProject = async (req, res) => {
       priority,
       status = 'planning',
       members = [],
+      existing_subscription_ids = [],
+      new_subscriptions = [],
     } = req.body;
 
     console.log('Fields:', { name, client_name, start_date, deadline, priority });
@@ -80,6 +82,42 @@ export const createProject = async (req, res) => {
       );
     } catch (logErr) {
       console.error('Activity log failed:', logErr.message);
+    }
+
+    // Subscriptions handling
+    if (existing_subscription_ids && existing_subscription_ids.length > 0) {
+      for (const subId of existing_subscription_ids) {
+        await pool.execute(
+          `INSERT IGNORE INTO subscription_projects (subscription_id, project_id) VALUES (?, ?)`,
+          [subId, projectId]
+        );
+      }
+    }
+
+    if (new_subscriptions && new_subscriptions.length > 0) {
+      for (const sub of new_subscriptions) {
+        const [subResult] = await pool.execute(
+          `INSERT INTO subscriptions
+          (name, category, provider, start_date, expiry_date, cost, currency, billing_cycle, alert_days_before, auto_renew, status, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+          [
+            sub.name, sub.category,
+            sub.provider || null,
+            sub.start_date, sub.expiry_date,
+            sub.cost || 0, 
+            sub.currency || 'USD',
+            sub.billing_cycle || 'monthly',
+            sub.alert_days_before || 7,
+            sub.auto_renew ? 1 : 0,
+            req.user.id
+          ]
+        );
+
+        await pool.execute(
+          `INSERT INTO subscription_projects (subscription_id, project_id) VALUES (?, ?)`,
+          [subResult.insertId, projectId]
+        );
+      }
     }
 
     const [projectRows] = await pool.execute('SELECT * FROM projects WHERE id = ?', [projectId]);

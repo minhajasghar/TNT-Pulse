@@ -9,13 +9,17 @@ import {
   linkProject,
   unlinkProject,
   getProjectSubscriptions,
-  getExpiringStats
+  getExpiringStats,
+  getSubscriptionsByProject
 } from '../controllers/subscriptionController.js';
 
 const router = express.Router();
 
 // GET /api/subscriptions/stats
 router.get('/stats', verifyToken, getExpiringStats);
+
+// GET /api/subscriptions/by-project
+router.get('/by-project', verifyToken, getSubscriptionsByProject);
 
 // GET /api/subscriptions/project/:project_id
 router.get('/project/:project_id', verifyToken, getProjectSubscriptions);
