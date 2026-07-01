@@ -36,15 +36,19 @@ export const uploadDocument = async (req, res, next) => {
       [title.trim(), description?.trim() || null, fileName, filePath, fileSize, ext, project_id || null, req.user.id],
     );
 
-    await logActivity(
-      req.user.id,
-      'upload_document',
-      'document',
-      result.insertId,
-      null,
-      { title: title.trim(), file_type: ext, file_size: fileSize },
-      req.ip,
-    );
+    try {
+      await logActivity(
+        req.user.id,
+        'upload_document',
+        'document',
+        result.insertId,
+        null,
+        { title: title.trim(), file_type: ext, file_size: fileSize },
+        req.ip,
+      );
+    } catch (logErr) {
+      console.error('Failed to log document upload activity:', logErr.message);
+    }
 
     const [doc] = await pool.execute(
       `SELECT d.*, u.name AS uploader_name
@@ -131,15 +135,19 @@ export const deleteDocument = async (req, res, next) => {
 
     await pool.execute('DELETE FROM documents WHERE id = ?', [req.params.id]);
 
-    await logActivity(
-      req.user.id,
-      'delete_document',
-      'document',
-      req.params.id,
-      { title: doc.title, file_name: doc.file_name },
-      null,
-      req.ip,
-    );
+    try {
+      await logActivity(
+        req.user.id,
+        'delete_document',
+        'document',
+        req.params.id,
+        { title: doc.title, file_name: doc.file_name },
+        null,
+        req.ip,
+      );
+    } catch (logErr) {
+      console.error('Failed to log document delete activity:', logErr.message);
+    }
 
     return res.status(200).json({ success: true, message: 'Document deleted' });
   } catch (err) {

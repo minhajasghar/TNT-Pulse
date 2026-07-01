@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, X, Plus, Search, Users } from 'lucide-react';
+import { Loader2, X, Plus, Search, Users, Upload } from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import Badge from '@/components/ui/Badge';
@@ -68,6 +68,7 @@ export default function CreateProjectModal({ onClose }: Props) {
   const [selectedMembers, setSelectedMembers] = useState<SelectedMember[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [draftRoles, setDraftRoles] = useState<Record<number, string>>({});
 
   const { data: users } = useQuery({
@@ -93,7 +94,22 @@ export default function CreateProjectModal({ onClose }: Props) {
       console.log('Response:', res.data);
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      const projectId = data.data?.id;
+      if (projectId && selectedFiles.length > 0) {
+        for (const file of selectedFiles) {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('title', file.name);
+          formData.append('project_id', String(projectId));
+          try {
+            await api.post('/api/documents/upload', formData);
+          } catch (err: any) {
+            console.error('Document upload error:', err?.response?.data || err);
+            toast({ message: err?.response?.data?.message || `Failed to upload ${file.name}`, type: 'error' });
+          }
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
       toast({ message: 'Project created successfully', type: 'success' });
@@ -267,6 +283,40 @@ export default function CreateProjectModal({ onClose }: Props) {
                       className="p-1 text-red-500 hover:bg-red-100 rounded transition-colors"
                     >
                       <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Documents Section */}
+          <div className="border-t border-gray-100 pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Upload Documents (Optional)</h3>
+            <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 transition-colors">
+              <Upload size={18} className="text-gray-400" />
+              <span className="text-sm text-gray-500">Click to select files</span>
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setSelectedFiles((prev) => [...prev, ...files]);
+                }}
+              />
+            </label>
+            {selectedFiles.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {selectedFiles.map((file, idx) => (
+                  <div key={idx} className="flex items-center justify-between px-3 py-1.5 bg-gray-50 rounded text-sm">
+                    <span className="text-gray-700 truncate flex-1">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                      className="p-1 text-red-500 hover:bg-red-100 rounded ml-2"
+                    >
+                      <X size={14} />
                     </button>
                   </div>
                 ))}

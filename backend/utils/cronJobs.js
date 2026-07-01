@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import pool from '../config/db.js';
 import { sendDeadlineWarningEmail, sendTaskOverdueEmail, sendTaskAssignedEmail } from './emailService.js';
+import { evaluateEscalationRules } from './escalationEngine.js';
 
 const alertAlreadySentToday = async (userId, type, entityType, entityId) => {
   const [rows] = await pool.execute(
@@ -272,8 +273,8 @@ const checkUpcomingTaskDeadlines = async () => {
 export const initCronJobs = () => {
   checkDeadlineWarnings();
 
-  cron.schedule('0 8 * * *', () => {
-    checkDeadlineWarnings();
+  cron.schedule('0 8 * * *', async () => {
+    await evaluateEscalationRules();
   });
 
   cron.schedule('30 8 * * *', () => {

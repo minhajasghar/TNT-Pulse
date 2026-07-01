@@ -504,7 +504,7 @@ export const getUserPermissions = async (req, res, next) => {
   }
 };
 
-const DEFAULT_MODULES = ['projects', 'tasks', 'team', 'documents', 'reports', 'activity', 'announcements'];
+const DEFAULT_MODULES = ['projects', 'tasks', 'team', 'documents', 'reports', 'activity', 'announcements', 'subscriptions'];
 
 export const getMyPermissions = async (req, res, next) => {
   try {

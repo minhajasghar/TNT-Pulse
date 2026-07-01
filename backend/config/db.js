@@ -21,7 +21,6 @@ const testConnection = async () => {
     connection.release();
   } catch (err) {
     console.error(`Database connection failed: ${err.message}`);
-    process.exit(1);
   }
 };
 

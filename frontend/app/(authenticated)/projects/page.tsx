@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Users, Trash2, RotateCcw, AlertTriangle, X, Pencil, FolderKanban, Loader2, Calendar } from 'lucide-react';
+import { Plus, Search, Users, Trash2, RotateCcw, AlertTriangle, X, Pencil, Edit3, FolderKanban, Loader2, Calendar, Upload } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import Badge from '@/components/ui/Badge';
@@ -293,7 +293,7 @@ const projectRoleOptions = [
 function EditProjectModal({ project, onClose }: EditProjectModalProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [tab, setTab] = useState<'details' | 'members'>('details');
+  const [tab, setTab] = useState<'details' | 'members' | 'documents'>('details');
 
   const { data: fullProject } = useQuery<ProjectDetail>({
     queryKey: ['project-detail', project.id],
@@ -317,6 +317,52 @@ function EditProjectModal({ project, onClose }: EditProjectModalProps) {
   const [removeConfirm, setRemoveConfirm] = useState<ProjectMember | null>(null);
   const [customRoleEdit, setCustomRoleEdit] = useState<Record<number, string>>({});
   const [newMemberCustomRoles, setNewMemberCustomRoles] = useState<Record<number, string>>({});
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const { data: projectDocs } = useQuery({
+    queryKey: ['project-docs', project.id],
+    queryFn: async () => {
+      const res = await api.get(`/api/documents?project_id=${project.id}`);
+      return res.data.data;
+    },
+    enabled: tab === 'documents',
+  });
+
+  const deleteDocMutation = useMutation({
+    mutationFn: async (docId: number) => {
+      await api.delete(`/api/documents/${docId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-docs', project.id] });
+      toast({ message: 'Document deleted', type: 'success' });
+    },
+  });
+
+  const handleUploadDocs = async () => {
+    if (uploadFiles.length === 0) return;
+    setUploading(true);
+    let allSucceeded = true;
+    for (const file of uploadFiles) {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('title', file.name);
+      fd.append('project_id', String(project.id));
+      try {
+        await api.post('/api/documents/upload', fd);
+      } catch (err: any) {
+        allSucceeded = false;
+        console.error('Document upload error:', err?.response?.data || err);
+        toast({ message: err?.response?.data?.message || `Failed to upload ${file.name}`, type: 'error' });
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ['project-docs', project.id] });
+    setUploadFiles([]);
+    setUploading(false);
+    if (allSucceeded) {
+      toast({ message: 'Documents uploaded', type: 'success' });
+    }
+  };
 
   const { data: allUsers } = useQuery({
     queryKey: ['users'],
@@ -420,6 +466,9 @@ function EditProjectModal({ project, onClose }: EditProjectModalProps) {
           <button onClick={() => setTab('members')} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${tab === 'members' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             Manage Members
           </button>
+          <button onClick={() => setTab('documents')} className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors mr-6 ${tab === 'documents' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            Documents
+          </button>
         </div>
 
         <div className="p-6 overflow-y-auto flex-1">
@@ -495,51 +544,73 @@ function EditProjectModal({ project, onClose }: EditProjectModalProps) {
                           <p className="text-sm font-medium text-gray-900 truncate">{m.name}</p>
                           <p className="text-xs text-gray-400">{m.email}</p>
                         </div>
-                        {customRoleEdit[m.id] !== undefined ? (
-                          <div className="flex gap-1">
-                            <input
-                              value={customRoleEdit[m.id]}
-                              onChange={(e) => setCustomRoleEdit((prev) => ({ ...prev, [m.id]: e.target.value }))}
-                              placeholder="Custom role"
-                              className="w-28 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                            />
-                            <button
-                              onClick={() => {
-                                const val = customRoleEdit[m.id].trim();
-                                if (val) {
-                                  updateRoleMutation.mutate({ userId: m.id, project_role: val });
-                                  setCustomRoleEdit((prev) => { const n = { ...prev }; delete n[m.id]; return n; });
+                        {(() => {
+                          const isCustomRole = m.project_role && !projectRoleOptions.some((o) => o.value === m.project_role);
+                          if (customRoleEdit[m.id] !== undefined) {
+                            return (
+                              <div className="flex gap-1">
+                                <input
+                                  value={customRoleEdit[m.id]}
+                                  onChange={(e) => setCustomRoleEdit((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                                  placeholder="Custom role"
+                                  className="w-28 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <button
+                                  onClick={() => {
+                                    const val = customRoleEdit[m.id].trim();
+                                    if (val) {
+                                      updateRoleMutation.mutate({ userId: m.id, project_role: val });
+                                      setCustomRoleEdit((prev) => { const n = { ...prev }; delete n[m.id]; return n; });
+                                    }
+                                  }}
+                                  disabled={updateRoleMutation.isPending || !customRoleEdit[m.id].trim()}
+                                  className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded text-xs font-medium"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => setCustomRoleEdit((prev) => { const n = { ...prev }; delete n[m.id]; return n; })}
+                                  className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded text-xs font-medium"
+                                >
+                                  X
+                                </button>
+                              </div>
+                            );
+                          }
+                          if (isCustomRole) {
+                            return (
+                              <div className="flex items-center gap-1">
+                                <span className="inline-block px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">
+                                  {m.project_role}
+                                </span>
+                                <button
+                                  onClick={() => setCustomRoleEdit((prev) => ({ ...prev, [m.id]: m.project_role || '' }))}
+                                  className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                                  title="Edit role"
+                                >
+                                  <Edit3 size={14} />
+                                </button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <select
+                              value={m.project_role || ''}
+                              onChange={(e) => {
+                                if (e.target.value === '__other__') {
+                                  setCustomRoleEdit((prev) => ({ ...prev, [m.id]: '' }));
+                                } else {
+                                  updateRoleMutation.mutate({ userId: m.id, project_role: e.target.value });
                                 }
                               }}
-                              disabled={updateRoleMutation.isPending || !customRoleEdit[m.id].trim()}
-                              className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded text-xs font-medium"
+                              className="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
                             >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setCustomRoleEdit((prev) => { const n = { ...prev }; delete n[m.id]; return n; })}
-                              className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded text-xs font-medium"
-                            >
-                              X
-                            </button>
-                          </div>
-                        ) : (
-                          <select
-                            value={m.project_role && !projectRoleOptions.some((o) => o.value === m.project_role) ? '__other__' : (m.project_role || '')}
-                            onChange={(e) => {
-                              if (e.target.value === '__other__') {
-                                setCustomRoleEdit((prev) => ({ ...prev, [m.id]: m.project_role || '' }));
-                              } else {
-                                updateRoleMutation.mutate({ userId: m.id, project_role: e.target.value });
-                              }
-                            }}
-                            className="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
-                          >
-                            {projectRoleOptions.map((opt) => (
-                              <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                          </select>
-                        )}
+                              {projectRoleOptions.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          );
+                        })()}
                         <button
                           onClick={() => setRemoveConfirm(m)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
@@ -655,6 +726,76 @@ function EditProjectModal({ project, onClose }: EditProjectModalProps) {
                             </button>
                           </>
                         )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === 'documents' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Upload Documents</h3>
+                <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 transition-colors">
+                  <Upload size={18} className="text-gray-400" />
+                  <span className="text-sm text-gray-500">Click to select files</span>
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => setUploadFiles((prev) => [...prev, ...Array.from(e.target.files || [])])}
+                  />
+                </label>
+                {uploadFiles.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {uploadFiles.map((f, i) => (
+                      <div key={i} className="flex items-center justify-between px-3 py-1.5 bg-gray-50 rounded text-sm">
+                        <span className="text-gray-700 truncate flex-1">{f.name}</span>
+                        <button type="button" onClick={() => setUploadFiles((prev) => prev.filter((_, j) => j !== i))} className="p-1 text-red-500 hover:bg-red-100 rounded ml-2"><X size={14} /></button>
+                      </div>
+                    ))}
+                    <div className="flex gap-2 pt-2">
+                      <button onClick={handleUploadDocs} disabled={uploading} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-xs font-medium rounded-lg flex items-center gap-1">
+                        {uploading && <Loader2 size={12} className="animate-spin" />}
+                        Upload {uploadFiles.length} file(s)
+                      </button>
+                      <button onClick={() => setUploadFiles([])} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium rounded-lg">Clear</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Existing Documents ({projectDocs?.length || 0})</h3>
+                {!projectDocs || projectDocs.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-6">No documents uploaded yet</p>
+                ) : (
+                  <div className="space-y-2">
+                    {projectDocs.map((doc: any) => (
+                      <div key={doc.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{doc.title}</p>
+                          <p className="text-xs text-gray-400">
+                            {doc.file_type?.toUpperCase()} • {(doc.file_size / 1024).toFixed(1)} KB • {doc.uploader_name || 'Unknown'}
+                          </p>
+                        </div>
+                        <div className="flex gap-1">
+                          <a
+                            href={`${api.defaults?.baseURL || ''}/api/documents/${doc.id}/download`}
+                            className="px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                            target="_blank"
+                          >
+                            Download
+                          </a>
+                          <button
+                            onClick={() => { if (confirm('Delete this document?')) deleteDocMutation.mutate(doc.id); }}
+                            className="px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

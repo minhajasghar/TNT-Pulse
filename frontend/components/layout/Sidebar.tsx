@@ -20,6 +20,7 @@ import {
   Megaphone,
   FolderOpen,
   BarChart3,
+  CreditCard,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import api from '@/lib/api';
@@ -31,6 +32,7 @@ const navigation = [
   { label: 'My Tasks', href: '/tasks', icon: CheckSquare, module: 'tasks' },
   { label: 'Team', href: '/team', icon: Users, module: 'team' },
   { label: 'Documents', href: '/documents', icon: FolderOpen, module: 'documents' },
+  { label: 'Subscriptions', href: '/subscriptions', icon: CreditCard, module: 'subscriptions' },
   { label: 'Reports', href: '/reports', icon: BarChart3, module: 'reports' },
   { label: 'Activity', href: '/activity', icon: Activity, module: 'activity' },
   { label: 'Settings', href: '/settings', icon: Settings, module: 'settings' },
@@ -71,9 +73,10 @@ function NavLinks({ collapsed }: { collapsed: boolean }) {
   const hasPermission = useAuthStore((s) => s.hasPermission);
 
   const visibleNav = navigation.filter((item) => {
-    if (item.module === 'reports' || item.module === 'settings') {
+    if (item.module === 'reports') {
       return userRole === 'super_admin' || userRole === 'manager';
     }
+    if (item.module === 'settings') return true;
     return hasPermission(item.module, 'can_view');
   });
 

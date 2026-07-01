@@ -153,7 +153,7 @@ export const getProjectById = async (req, res, next) => {
         SELECT 
           pm.project_role,
           pm.assigned_at,
-          u.id as user_id, u.name, u.email, 
+          u.id as id, u.id as user_id, u.name, u.email, 
           u.role, u.status
         FROM project_members pm
         JOIN users u ON pm.user_id = u.id
@@ -165,7 +165,7 @@ export const getProjectById = async (req, res, next) => {
         SELECT 
           'Member' as project_role,
           pm.assigned_at,
-          u.id as user_id, u.name, u.email, 
+          u.id as id, u.id as user_id, u.name, u.email, 
           u.role, u.status
         FROM project_members pm
         JOIN users u ON pm.user_id = u.id
@@ -189,6 +189,15 @@ export const getProjectById = async (req, res, next) => {
       WHERE r.project_id = ?
     `, [req.params.id]);
 
+    // Get Tasks
+    const [tasks] = await pool.execute(`
+      SELECT t.*, u.name as assignee_name
+      FROM tasks t
+      LEFT JOIN users u ON t.assigned_to = u.id
+      WHERE t.project_id = ?
+      ORDER BY t.created_at DESC
+    `, [req.params.id]);
+
     return res.json({
       success: true,
       data: {
@@ -196,6 +205,7 @@ export const getProjectById = async (req, res, next) => {
         members,
         milestones,
         requirements,
+        tasks,
       },
     });
   } catch (err) {

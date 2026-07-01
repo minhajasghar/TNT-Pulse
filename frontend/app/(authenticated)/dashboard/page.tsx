@@ -4,8 +4,9 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import {
-  FolderKanban, Play, AlertTriangle, Users, CheckCircle, Clock, Calendar,
+  FolderKanban, Play, AlertTriangle, Users, CheckCircle, Clock, Calendar, RefreshCw
 } from 'lucide-react';
+import Link from 'next/link';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
 } from 'recharts';
@@ -50,6 +51,22 @@ function AdminDashboard() {
     queryFn: async () => {
       const res = await api.get('/api/dashboard/admin');
       return res.data.data;
+    },
+  });
+
+  const { data: subStats } = useQuery({
+    queryKey: ['subscriptions-stats'],
+    queryFn: async () => {
+      const res = await api.get('/api/subscriptions/stats');
+      return res.data.stats;
+    },
+  });
+
+  const { data: subsData } = useQuery({
+    queryKey: ['subscriptions', 'all', 'active'],
+    queryFn: async () => {
+      const res = await api.get('/api/subscriptions?status=active');
+      return res.data.subscriptions;
     },
   });
 
@@ -135,7 +152,7 @@ function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Upcoming Deadlines</h3>
           {upcoming_deadlines.length === 0 ? (
@@ -189,6 +206,41 @@ function AdminDashboard() {
             </div>
           )}
         </div>
+
+        {subsData && subsData.length > 0 && subStats && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-700">Subscriptions</h3>
+              <Link href="/subscriptions" className="text-sm font-medium text-indigo-600 hover:text-indigo-700">
+                View All →
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="bg-red-50 rounded-lg p-3 border border-red-100">
+                <p className="text-xs text-gray-500 mb-1">Exp. This Week</p>
+                <p className="text-lg font-bold text-red-700">{subStats.expiring_this_week}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <p className="text-xs text-gray-500 mb-1">Total Monthly</p>
+                <p className="text-lg font-bold text-gray-900">${subStats.total_monthly_cost?.toFixed(2)}</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {subsData.slice(0, 3).map((sub: any) => (
+                <div key={sub.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 truncate max-w-[140px]">{sub.name}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-xs font-semibold ${sub.days_remaining <= 7 ? 'text-red-600' : 'text-gray-600'}`}>
+                      {sub.days_remaining < 0 ? 'Expired' : `${sub.days_remaining}d left`}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

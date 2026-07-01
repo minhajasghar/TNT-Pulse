@@ -48,7 +48,7 @@ const addSchema = z.object({
   role: z.string().min(1, 'Role is required'),
 });
 
-const permissionModules = ['projects', 'tasks', 'team', 'documents', 'reports', 'activity', 'announcements'] as const;
+const permissionModules = ['projects', 'tasks', 'team', 'documents', 'reports', 'activity', 'announcements', 'subscriptions'] as const;
 
 export default function TeamPage() {
   useEffect(() => { document.title = 'Team — TNT Pulse'; }, []);

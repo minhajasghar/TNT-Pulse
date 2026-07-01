@@ -14,7 +14,10 @@ import activityRoutes from './routes/activityRoutes.js';
 import announcementRoutes from './routes/announcementRoutes.js';
 import documentRoutes from './routes/documentRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
+import subscriptionRoutes from './routes/subscriptionRoutes.js';
+import escalationRuleRoutes from './routes/escalationRuleRoutes.js';
 import { initCronJobs } from './utils/cronJobs.js';
+import { runMigrations } from './utils/migrate.js';
 
 dotenv.config();
 
@@ -52,6 +55,8 @@ app.use('/api/activity', activityRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/escalation-rules', escalationRuleRoutes);
 
 app.use((err, req, res, next) => {
   console.error('=== SERVER ERROR ===');
@@ -68,7 +73,50 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
+async function ensureTables() {
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS documents (
+      id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      title       VARCHAR(255) NOT NULL,
+      description TEXT DEFAULT NULL,
+      file_name   VARCHAR(255) NOT NULL,
+      file_path   VARCHAR(500) NOT NULL,
+      file_size   INT UNSIGNED DEFAULT NULL,
+      file_type   VARCHAR(50) DEFAULT NULL,
+      project_id  INT UNSIGNED DEFAULT NULL,
+      uploaded_by INT UNSIGNED DEFAULT NULL,
+      uploaded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_docs_project_id  FOREIGN KEY (project_id)  REFERENCES projects(id) ON DELETE SET NULL ON UPDATE CASCADE,
+      CONSTRAINT fk_docs_uploaded_by FOREIGN KEY (uploaded_by) REFERENCES users(id)   ON DELETE SET NULL ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS announcements (
+      id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      title       VARCHAR(255) NOT NULL,
+      content     TEXT NOT NULL,
+      priority    ENUM('normal','important','urgent') NOT NULL DEFAULT 'normal',
+      is_pinned   BOOLEAN NOT NULL DEFAULT FALSE,
+      created_by  INT UNSIGNED DEFAULT NULL,
+      created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_announcements_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  ];
+  for (const sql of tables) {
+    try {
+      await pool.execute(sql);
+    } catch (err) {
+      console.error('Table creation error:', err.message);
+    }
+  }
+}
+
+app.listen(PORT, async () => {
   console.log(`TNT Pulse backend running on port ${PORT}`);
+  await ensureTables();
+  try {
+    await runMigrations();
+  } catch (err) {
+    console.error('Migration error:', err.message);
+  }
   initCronJobs();
 });

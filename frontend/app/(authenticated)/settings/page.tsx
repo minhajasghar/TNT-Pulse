@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, Download, Save, AlertTriangle, Mail, ShieldAlert } from 'lucide-react';
+import { Loader2, Download, Save, AlertTriangle, Mail, ShieldAlert, Plus, ToggleLeft, ToggleRight, Edit3, Trash2, AlertOctagon } from 'lucide-react';
+import EscalationRuleModal from '@/components/settings/EscalationRuleModal';
 import api from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { User } from '@/lib/store';
@@ -147,6 +148,41 @@ export default function SettingsPage() {
     },
   });
 
+  const [showRuleModal, setShowRuleModal] = useState(false);
+  const [editingRule, setEditingRule] = useState<any>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
+  const queryClient = useQueryClient();
+
+  const { data: rulesData, isLoading: rulesLoading } = useQuery({
+    queryKey: ['escalation-rules'],
+    queryFn: async () => {
+      const res = await api.get('/api/escalation-rules');
+      return res.data.rules;
+    },
+    enabled: isAdmin,
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async (ruleId: number) => {
+      await api.patch(`/api/escalation-rules/${ruleId}/toggle`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['escalation-rules'] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (ruleId: number) => {
+      await api.delete(`/api/escalation-rules/${ruleId}`);
+    },
+    onSuccess: () => {
+      toast({ message: 'Rule deleted', type: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['escalation-rules'] });
+      setDeleteConfirmId(null);
+    },
+  });
+
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -167,41 +203,43 @@ export default function SettingsPage() {
     <div className="max-w-2xl space-y-8">
       <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
 
-      {isAdmin && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">My Profile</h2>
-          <form onSubmit={profileForm.handleSubmit((d) => profileMutation.mutate(d))} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-              <input {...profileForm.register('name')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
-              {profileForm.formState.errors.name && <p className="text-xs text-red-500 mt-1">{profileForm.formState.errors.name.message}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <div className="flex gap-2">
-                <input
-                  value={newEmail}
-                  onChange={(e) => { setNewEmail(e.target.value); setEmailError(''); }}
-                  placeholder="Enter new email"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                />
-                <button
-                  type="button"
-                  onClick={handleUpdateEmail}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg whitespace-nowrap"
-                >
-                  <Mail size={16} /> Update Email
-                </button>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Account</h2>
+        <div className="space-y-4">
+          {isAdmin && (
+            <form onSubmit={profileForm.handleSubmit((d) => profileMutation.mutate(d))} className="space-y-4 pb-4 border-b border-gray-100">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input {...profileForm.register('name')} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+                {profileForm.formState.errors.name && <p className="text-xs text-red-500 mt-1">{profileForm.formState.errors.name.message}</p>}
               </div>
-              {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
+              <button type="submit" disabled={profileMutation.isPending} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-semibold rounded-lg">
+                {profileMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+                <Save size={16} /> Save Changes
+              </button>
+            </form>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <div className="flex gap-2">
+              <input
+                value={newEmail}
+                onChange={(e) => { setNewEmail(e.target.value); setEmailError(''); }}
+                placeholder="Enter new email"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                type="button"
+                onClick={handleUpdateEmail}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg whitespace-nowrap"
+              >
+                <Mail size={16} /> Update Email
+              </button>
             </div>
-            <button type="submit" disabled={profileMutation.isPending} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-semibold rounded-lg">
-              {profileMutation.isPending && <Loader2 size={16} className="animate-spin" />}
-              <Save size={16} /> Save Changes
-            </button>
-          </form>
+            {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
+          </div>
         </div>
-      )}
+      </div>
 
       {showEmailConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -298,6 +336,124 @@ export default function SettingsPage() {
               <Save size={16} /> Save Preferences
             </button>
           </form>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Alert Escalation Rules</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Configure when and how often alerts are sent for project deadlines and subscription expiry. These rules apply globally.
+              </p>
+            </div>
+            {isSuperAdmin && (
+              <button
+                onClick={() => { setEditingRule(null); setShowRuleModal(true); }}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg whitespace-nowrap"
+              >
+                <Plus size={16} /> Add Rule
+              </button>
+            )}
+          </div>
+
+          {rulesLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={24} className="animate-spin text-gray-400" />
+            </div>
+          ) : !rulesData || rulesData.length === 0 ? (
+            <div className="text-center py-8">
+              <AlertOctagon size={40} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-sm font-medium text-gray-900">No escalation rules configured</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Default rules will apply automatically. Add custom rules to fine-tune your alert system.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {rulesData.map((rule: any) => (
+                <div key={rule.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">{rule.rule_name}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                      <span className="text-xs text-gray-500">
+                        Trigger: {rule.trigger_type === 'percentage' ? `${rule.threshold_value}% time elapsed` : `${rule.threshold_value} days remaining`}
+                      </span>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${rule.frequency === 'daily' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {rule.frequency === 'daily' ? 'Daily' : 'One-time'}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {rule.applies_to === 'both' ? 'Projects & Subscriptions' : rule.applies_to === 'projects' ? 'Projects' : 'Subscriptions'}
+                      </span>
+                    </div>
+                  </div>
+                  {isSuperAdmin && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => toggleMutation.mutate(rule.id)}
+                        className={`p-1.5 rounded-lg transition-colors ${rule.is_active ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-200'}`}
+                        title={rule.is_active ? 'Disable' : 'Enable'}
+                      >
+                        {rule.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                      </button>
+                      <button
+                        onClick={() => { setEditingRule(rule); setShowRuleModal(true); }}
+                        className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        title="Edit"
+                      >
+                        <Edit3 size={16} />
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirmId(rule.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {showRuleModal && (
+        <EscalationRuleModal
+          isOpen={showRuleModal}
+          onClose={() => { setShowRuleModal(false); setEditingRule(null); }}
+          rule={editingRule}
+        />
+      )}
+
+      {deleteConfirmId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Escalation Rule?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Are you sure? Deleting this rule means the associated alert scenario will no longer trigger notifications.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteMutation.mutate(deleteConfirmId)}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
+              >
+                {deleteMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
