@@ -410,6 +410,8 @@ TNT Pulse uses a configurable multi-stage escalation engine that runs daily at 8
   └── Adobe License — not linked to any project
 ```
 
+---
+
 ## 🗺️ Roadmap
 
 - [x] Project & Task Management
