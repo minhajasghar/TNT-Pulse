@@ -410,22 +410,6 @@ TNT Pulse uses a configurable multi-stage escalation engine that runs daily at 8
   └── Adobe License — not linked to any project
 ```
 
----
-
-## 📸 Screenshots
-
-> *(Add screenshots after deployment)*
-
-| Login | Dashboard | Projects |
-|---|---|---|
-| ![Login](#) | ![Dashboard](#) | ![Projects](#) |
-
-| Subscriptions | Team | Settings |
-|---|---|---|
-| ![Subscriptions](#) | ![Team](#) | ![Settings](#) |
-
----
-
 ## 🗺️ Roadmap
 
 - [x] Project & Task Management
@@ -463,4 +447,4 @@ Lahore, Pakistan
 ## 📄 License
 
 This project is private and proprietary.  
-© 2025 TNT Innovations. All rights reserved.
+© 2026 TNT Innovations. All rights reserved.
