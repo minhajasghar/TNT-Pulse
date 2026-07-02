@@ -49,10 +49,11 @@ function formatFileSize(bytes: number): string {
 
 export default function DocumentsPage() {
   useEffect(() => { document.title = 'Documents — TNT Pulse'; }, []);
-  const { user } = useAuthStore();
+  const { user, hasPermission } = useAuthStore();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const canDelete = user?.role === 'super_admin';
+  const canDelete = hasPermission('documents', 'can_delete');
+  const canCreate = hasPermission('documents', 'can_create');
 
   const [showUpload, setShowUpload] = useState(false);
   const [search, setSearch] = useState('');
@@ -99,12 +100,14 @@ export default function DocumentsPage() {
           <FolderOpen size={24} className="text-indigo-600" />
           <h1 className="text-2xl font-bold text-gray-900">Documents</h1>
         </div>
-        <button
-          onClick={() => setShowUpload(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg"
-        >
-          <Upload size={18} /> Upload Document
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => setShowUpload(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg"
+          >
+            <Upload size={18} /> Upload Document
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">

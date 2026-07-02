@@ -98,7 +98,6 @@ const createEmptyService = (): ServiceCard => ({
 });
 
 export default function SubscriptionsPage() {
-  const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -130,7 +129,12 @@ export default function SubscriptionsPage() {
     localStorage.setItem('subscription_view_preference', vMode);
   };
 
-  const isAdminOrManager = user?.role === 'super_admin' || user?.role === 'manager';
+  const { user, hasPermission } = useAuthStore();
+  const canManage = hasPermission('subscriptions', 'can_create') || hasPermission('subscriptions', 'can_edit') || hasPermission('subscriptions', 'can_delete');
+  const canCreate = hasPermission('subscriptions', 'can_create');
+  const canEdit = hasPermission('subscriptions', 'can_edit');
+  const canDelete = hasPermission('subscriptions', 'can_delete');
+  const isAdminOrManager = canManage;
 
   // Existing Queries
   const { data: statsData, isLoading: isLoadingStats } = useQuery({
@@ -409,7 +413,7 @@ export default function SubscriptionsPage() {
                 📁 By Project
               </button>
             </div>
-            {isAdminOrManager && (
+            {canCreate && (
               <button 
                 onClick={startAddMode}
                 className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
@@ -594,21 +598,25 @@ export default function SubscriptionsPage() {
                             )}
                           </div>
                         </td>
-                        {isAdminOrManager && (
+                        {(canEdit || canDelete) && (
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <button 
-                                onClick={() => handleEdit(sub)}
-                                className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"
-                              >
-                                <Edit size={18} />
-                              </button>
-                              <button 
-                                onClick={() => handleDelete(sub.id)}
-                                className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                              >
-                                <Trash2 size={18} />
-                              </button>
+                              {canEdit && (
+                                <button 
+                                  onClick={() => handleEdit(sub)}
+                                  className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"
+                                >
+                                  <Edit size={18} />
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button 
+                                  onClick={() => handleDelete(sub.id)}
+                                  className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         )}
@@ -684,14 +692,18 @@ export default function SubscriptionsPage() {
                                   Exp: {format(new Date(sub.expiry_date), 'MMM d, yyyy')}
                                 </span>
                               </div>
-                              {isAdminOrManager && (
+                              {(canEdit || canDelete) && (
                                 <div className="flex items-center gap-2">
-                                  <button onClick={() => handleEdit(sub)} className="p-1.5 text-gray-400 hover:text-indigo-600 rounded">
-                                    <Edit size={16} />
-                                  </button>
-                                  <button onClick={() => handleUnlink(sub.id, group.project_id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded">
-                                    <Trash2 size={16} />
-                                  </button>
+                                  {canEdit && (
+                                    <button onClick={() => handleEdit(sub)} className="p-1.5 text-gray-400 hover:text-indigo-600 rounded">
+                                      <Edit size={16} />
+                                    </button>
+                                  )}
+                                  {canDelete && (
+                                    <button onClick={() => handleUnlink(sub.id, group.project_id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded">
+                                      <Trash2 size={16} />
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -759,14 +771,18 @@ export default function SubscriptionsPage() {
                                   Exp: {format(new Date(sub.expiry_date), 'MMM d, yyyy')}
                                 </span>
                               </div>
-                              {isAdminOrManager && (
+                              {(canEdit || canDelete) && (
                                 <div className="flex items-center gap-2">
-                                  <button onClick={() => handleEdit(sub)} className="px-3 py-1.5 text-sm bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg font-medium">
-                                    Link to Project
-                                  </button>
-                                  <button onClick={() => handleDelete(sub.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded">
-                                    <Trash2 size={16} />
-                                  </button>
+                                  {canEdit && (
+                                    <button onClick={() => handleEdit(sub)} className="px-3 py-1.5 text-sm bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg font-medium">
+                                      Link to Project
+                                    </button>
+                                  )}
+                                  {canDelete && (
+                                    <button onClick={() => handleDelete(sub.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded">
+                                      <Trash2 size={16} />
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>

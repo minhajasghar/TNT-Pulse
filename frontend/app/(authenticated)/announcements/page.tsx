@@ -28,10 +28,10 @@ const priorityStyles: Record<string, string> = {
 
 export default function AnnouncementsPage() {
   useEffect(() => { document.title = 'Announcements — TNT Pulse'; }, []);
-  const { user } = useAuthStore();
+  const { user, hasPermission } = useAuthStore();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const canManage = user?.role === 'super_admin' || user?.role === 'manager';
+  const canManage = hasPermission('announcements', 'can_create') || hasPermission('announcements', 'can_edit') || hasPermission('announcements', 'can_delete');
   const [showCreate, setShowCreate] = useState(false);
 
   const { data: announcements, isLoading } = useQuery<Announcement[]>({

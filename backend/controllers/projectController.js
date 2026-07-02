@@ -147,9 +147,10 @@ export const getAllProjects = async (req, res, next) => {
   try {
     let query = `SELECT p.*,
                   (SELECT COUNT(*) FROM project_members WHERE project_id = p.id) AS member_count,
-                  (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status != 'done') AS active_tasks
+                  (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status != 'done') AS active_tasks,
+                  EXISTS(SELECT 1 FROM project_members WHERE project_id = p.id AND user_id = ?) AS is_member
                  FROM projects p WHERE p.deleted_at IS NULL`;
-    const params = [];
+    const params = [req.user.id];
 
     if (req.query.status) {
       query += ' AND p.status = ?';

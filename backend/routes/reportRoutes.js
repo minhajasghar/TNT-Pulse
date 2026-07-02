@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { verifyToken, requireRole } from '../middleware/authMiddleware.js';
+import { verifyToken, requireRole, checkPermission } from '../middleware/authMiddleware.js';
 import {
   getProjectReport,
   getTeamReport,
@@ -8,8 +8,8 @@ import {
 
 const router = Router();
 
-router.get('/projects', verifyToken, requireRole('super_admin', 'manager'), getProjectReport);
-router.get('/team', verifyToken, requireRole('super_admin', 'manager'), getTeamReport);
-router.get('/tasks', verifyToken, requireRole('super_admin', 'manager'), getTaskReport);
+router.get('/projects', verifyToken, checkPermission('reports', 'view'), getProjectReport);
+router.get('/team', verifyToken, checkPermission('reports', 'view'), getTeamReport);
+router.get('/tasks', verifyToken, checkPermission('reports', 'view'), getTaskReport);
 
 export default router;

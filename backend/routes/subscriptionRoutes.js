@@ -1,5 +1,5 @@
 import express from 'express';
-import { verifyToken, requireRole } from '../middleware/authMiddleware.js';
+import { verifyToken, requireRole, checkPermission } from '../middleware/authMiddleware.js';
 import {
   createSubscription,
   getAllSubscriptions,
@@ -29,7 +29,7 @@ router.get('/by-project', verifyToken, getSubscriptionsByProject);
 router.get('/project/:project_id', verifyToken, getProjectSubscriptions);
 
 // POST /api/subscriptions
-router.post('/', verifyToken, requireRole('super_admin', 'manager'), createSubscription);
+router.post('/', verifyToken, checkPermission('subscriptions', 'create'), createSubscription);
 
 // GET /api/subscriptions
 router.get('/', verifyToken, getAllSubscriptions);
@@ -38,15 +38,15 @@ router.get('/', verifyToken, getAllSubscriptions);
 router.get('/:id', verifyToken, getSubscriptionById);
 
 // PUT /api/subscriptions/:id
-router.put('/:id', verifyToken, requireRole('super_admin', 'manager'), updateSubscription);
+router.put('/:id', verifyToken, checkPermission('subscriptions', 'edit'), updateSubscription);
 
 // DELETE /api/subscriptions/:id
-router.delete('/:id', verifyToken, requireRole('super_admin'), deleteSubscription);
+router.delete('/:id', verifyToken, checkPermission('subscriptions', 'delete'), deleteSubscription);
 
 // POST /api/subscriptions/:id/projects
-router.post('/:id/projects', verifyToken, requireRole('super_admin', 'manager'), linkProject);
+router.post('/:id/projects', verifyToken, checkPermission('subscriptions', 'edit'), linkProject);
 
 // DELETE /api/subscriptions/:id/projects/:projectId
-router.delete('/:id/projects/:projectId', verifyToken, requireRole('super_admin', 'manager'), unlinkProject);
+router.delete('/:id/projects/:projectId', verifyToken, checkPermission('subscriptions', 'edit'), unlinkProject);
 
 export default router;

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { verifyToken, requireRole } from '../middleware/authMiddleware.js';
+import { verifyToken, requireRole, checkPermission } from '../middleware/authMiddleware.js';
 import {
   createAnnouncement,
   getAllAnnouncements,
@@ -9,9 +9,9 @@ import {
 
 const router = Router();
 
-router.post('/', verifyToken, requireRole('super_admin', 'manager'), createAnnouncement);
+router.post('/', verifyToken, checkPermission('announcements', 'create'), createAnnouncement);
 router.get('/', verifyToken, getAllAnnouncements);
-router.patch('/:id/pin', verifyToken, requireRole('super_admin', 'manager'), pinAnnouncement);
-router.delete('/:id', verifyToken, requireRole('super_admin', 'manager'), deleteAnnouncement);
+router.patch('/:id/pin', verifyToken, checkPermission('announcements', 'edit'), pinAnnouncement);
+router.delete('/:id', verifyToken, checkPermission('announcements', 'delete'), deleteAnnouncement);
 
 export default router;

@@ -37,8 +37,8 @@ function downloadCSV(filename: string, headers: string[], rows: Record<string, u
 
 export default function ReportsPage() {
   useEffect(() => { document.title = 'Reports — TNT Pulse'; }, []);
-  const { user } = useAuthStore();
-  const isAdmin = user?.role === 'super_admin' || user?.role === 'manager';
+  const { user, hasPermission } = useAuthStore();
+  const isAdmin = hasPermission('reports', 'can_view');
   const [activeTab, setActiveTab] = useState<Tab>('project');
   const ranges = useMemo(() => getDateRanges(), []);
   const [dateFrom, setDateFrom] = useState(ranges[1].from);

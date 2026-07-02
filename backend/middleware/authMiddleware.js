@@ -39,6 +39,10 @@ export const checkPermission = (module, action) => {
       return res.status(401).json({ success: false, message: 'No token provided' });
     }
 
+    if (req.user.role === 'super_admin' || req.user.role === 'manager') {
+      return next();
+    }
+
     try {
       const [rows] = await pool.execute(
         `SELECT can_view, can_create, can_edit, can_delete
