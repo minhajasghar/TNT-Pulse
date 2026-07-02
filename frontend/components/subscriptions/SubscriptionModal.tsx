@@ -59,6 +59,12 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, prese
     enabled: isOpen
   });
 
+  const { data: uniqueEmailsData } = useQuery({
+    queryKey: ['subscription-emails'],
+    queryFn: () => api.get('/api/subscriptions/emails').then(res => res.data.emails),
+    enabled: isOpen
+  });
+
   useEffect(() => {
     if (subscription) {
       setFormData({
@@ -121,6 +127,17 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, prese
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (formData.account_email) {
+      const emails = formData.account_email.split(',').map(e => e.trim()).filter(Boolean);
+      const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+      const invalidEmails = emails.filter(e => !emailRegex.test(e));
+      if (invalidEmails.length > 0) {
+        toast.error('Invalid email address');
+        return;
+      }
+    }
+
     const submitData = { ...formData };
     if (!isEditing) {
       submitData.linked_project_ids = selectedProjects.map((p: any) => p.id);
@@ -239,7 +256,12 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, prese
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Account / Alert Emails</label>
-                <input type="text" name="account_email" value={formData.account_email} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="email1@domain.com, email2@domain.com" />
+                <input type="text" list="saved-emails-modal" name="account_email" value={formData.account_email} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="email1@domain.com, email2@domain.com" />
+                <datalist id="saved-emails-modal">
+                  {uniqueEmailsData?.map((email: string) => (
+                    <option key={email} value={email} />
+                  ))}
+                </datalist>
                 <p className="text-xs text-gray-500 mt-1">Separate multiple emails with commas</p>
               </div>
 

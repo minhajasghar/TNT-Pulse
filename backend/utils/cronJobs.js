@@ -1,15 +1,25 @@
 import cron from 'node-cron';
 import pool from '../config/db.js';
-import { sendDeadlineWarningEmail, sendTaskOverdueEmail, sendTaskAssignedEmail } from './emailService.js';
+import { sendDeadlineWarningEmail, sendTaskOverdueEmail, sendTaskAssignedEmail, sendSubscriptionAlertEmail, sendBatchedSubscriptionAlertEmail } from './emailService.js';
 import { evaluateEscalationRules } from './escalationEngine.js';
 
 const alertAlreadySentToday = async (userId, type, entityType, entityId) => {
-  const [rows] = await pool.execute(
-    `SELECT id FROM alerts
-     WHERE user_id = ? AND type = ? AND related_entity_type = ? AND related_entity_id = ?
-       AND DATE(created_at) = CURDATE()`,
-    [userId, type, entityType, entityId],
-  );
+  let query;
+  let params;
+
+  if (userId === null) {
+    query = `SELECT id FROM alerts
+       WHERE type = ? AND related_entity_type = ? AND related_entity_id = ?
+         AND DATE(created_at) = CURDATE()`;
+    params = [type, entityType, entityId];
+  } else {
+    query = `SELECT id FROM alerts
+       WHERE user_id = ? AND type = ? AND related_entity_type = ? AND related_entity_id = ?
+         AND DATE(created_at) = CURDATE()`;
+    params = [userId, type, entityType, entityId];
+  }
+
+  const [rows] = await pool.execute(query, params);
   return rows.length > 0;
 };
 
@@ -270,11 +280,128 @@ const checkUpcomingTaskDeadlines = async () => {
   }
 };
 
+export const checkSubscriptionExpiryAlerts = async (specificSubscriptionId = null) => {
+  try {
+    console.log(`[Cron] checkSubscriptionExpiryAlerts — started${specificSubscriptionId ? ` for ID ${specificSubscriptionId}` : ''}`);
+
+    let query = `
+      SELECT s.*, DATEDIFF(s.expiry_date, CURDATE()) as days_remaining
+      FROM subscriptions s
+      WHERE s.status = 'active'
+        AND DATEDIFF(s.expiry_date, CURDATE()) <= s.alert_days_before
+    `;
+    const params = [];
+
+    if (specificSubscriptionId) {
+      query += ` AND s.id = ?`;
+      params.push(specificSubscriptionId);
+    }
+
+    const [subscriptions] = await pool.execute(query, params);
+
+    if (subscriptions.length === 0) {
+      console.log('[Cron] checkSubscriptionExpiryAlerts — no subscriptions needing alerts');
+      return;
+    }
+
+    const emailGroups = {};
+    const subsToAlert = [];
+
+    // Filter and group subscriptions
+    for (const sub of subscriptions) {
+      const alreadySent = await alertAlreadySentToday(null, 'subscription_expiry', 'subscription', sub.id);
+      if (alreadySent) continue;
+      
+      subsToAlert.push(sub);
+
+      const emails = (sub.account_email || '').split(',').map(e => e.trim()).filter(Boolean);
+      if (emails.length === 0) {
+        console.log(`[Cron] Subscription #${sub.id} "${sub.name}" has no alert emails`);
+      }
+
+      for (const email of emails) {
+        if (!emailGroups[email]) {
+          emailGroups[email] = [];
+        }
+        emailGroups[email].push({
+          id: sub.id,
+          subscriptionName: sub.name,
+          category: sub.category,
+          provider: sub.provider,
+          expiryDate: sub.expiry_date,
+          daysRemaining: sub.days_remaining,
+          cost: sub.cost,
+          billingCycle: sub.billing_cycle,
+        });
+      }
+    }
+
+    if (subsToAlert.length === 0) {
+      console.log('[Cron] checkSubscriptionExpiryAlerts — alerts already sent for today');
+      return;
+    }
+
+    let emailCount = 0;
+
+    // Send batched emails
+    for (const [email, userSubs] of Object.entries(emailGroups)) {
+      try {
+        await sendBatchedSubscriptionAlertEmail({
+          to: email,
+          name: email.split('@')[0],
+          subscriptions: userSubs,
+        });
+        emailCount++;
+        console.log(`[Cron] Sent batched subscription alert to ${email} for ${userSubs.length} subscriptions`);
+      } catch (err) {
+        console.error(`[Cron] Failed to send batched email to ${email}: ${err.message}`);
+      }
+    }
+
+    // Insert database alerts for the subscriptions processed
+    for (const sub of subsToAlert) {
+      const daysRemaining = sub.days_remaining;
+      const alertMessage = daysRemaining < 0
+        ? `Subscription "${sub.name}" expired ${Math.abs(daysRemaining)} day(s) ago`
+        : `Subscription "${sub.name}" expires in ${daysRemaining} day(s)`;
+
+      await pool.execute(`
+        INSERT INTO alerts (user_id, type, message, related_entity_type, related_entity_id)
+        VALUES (?, 'subscription_expiry', ?, 'subscription', ?)
+      `, [null, alertMessage, sub.id]);
+
+      const [admins] = await pool.execute(`
+        SELECT id, name, email FROM users
+        WHERE role IN ('super_admin', 'manager')
+          AND status = 'active'
+      `);
+
+      for (const admin of admins) {
+        const adminAlreadySent = await alertAlreadySentToday(admin.id, 'subscription_expiry', 'subscription', sub.id);
+        if (adminAlreadySent) continue;
+
+        await pool.execute(`
+          INSERT INTO alerts (user_id, type, message, related_entity_type, related_entity_id)
+          VALUES (?, 'subscription_expiry', ?, 'subscription', ?)
+        `, [admin.id, `[ADMIN] ${alertMessage}`, sub.id]);
+      }
+    }
+
+    console.log(`[Cron] checkSubscriptionExpiryAlerts — completed: ${emailCount} batched emails sent`);
+  } catch (error) {
+    console.error('[Cron] checkSubscriptionExpiryAlerts — error:', error.message);
+  }
+};
+
 export const initCronJobs = () => {
   checkDeadlineWarnings();
 
   cron.schedule('0 8 * * *', async () => {
     await evaluateEscalationRules();
+  });
+
+  cron.schedule('0 0 * * *', () => {
+    checkSubscriptionExpiryAlerts();
   });
 
   cron.schedule('30 8 * * *', () => {

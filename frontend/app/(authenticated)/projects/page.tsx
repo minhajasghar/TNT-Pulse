@@ -308,8 +308,8 @@ function EditProjectModal({ project, onClose }: EditProjectModalProps) {
   const [name, setName] = useState(project.name);
   const [clientName, setClientName] = useState(project.client_name || '');
   const [description, setDescription] = useState(project.description || '');
-  const [startDate, setStartDate] = useState(project.start_date || '');
-  const [deadline, setDeadline] = useState(project.deadline || '');
+  const [startDate, setStartDate] = useState(project.start_date ? project.start_date.split('T')[0] : '');
+  const [deadline, setDeadline] = useState(project.deadline ? project.deadline.split('T')[0] : '');
   const [priority, setPriority] = useState(project.priority);
   const [status, setStatus] = useState(project.status);
 

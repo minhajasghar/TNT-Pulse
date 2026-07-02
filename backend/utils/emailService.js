@@ -397,38 +397,132 @@ export const sendSubscriptionAlertEmail = async ({ to, name, subscriptionName, c
       <div style="text-align: center; margin-bottom: 32px;">
         <div style="font-size: 28px; font-weight: 800; color: #6366f1; letter-spacing: -0.5px;">TNT <span style="color: #1e293b;">Innovations</span></div>
       </div>
-      <div style="background-color: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); \${isExpired || isUrgent ? 'border-top: 4px solid #ef4444;' : ''}">
-        <div style="display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background-color: \${badgeBg}; color: \${badgeColor}; margin-bottom: 20px;">\${urgencyLabel}</div>
-        <h1 style="font-size: 20px; font-weight: 700; color: #1e293b; margin: 0 0 8px 0;">Hello \${name},</h1>
+        <div style="background-color: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); ${isExpired || isUrgent ? 'border-top: 4px solid #ef4444;' : ''}">
+        <div style="display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background-color: ${badgeBg}; color: ${badgeColor}; margin-bottom: 20px;">${urgencyLabel}</div>
+        <h1 style="font-size: 20px; font-weight: 700; color: #1e293b; margin: 0 0 8px 0;">Hello ${name},</h1>
         <p style="font-size: 15px; color: #475569; line-height: 1.6; margin: 0 0 24px 0;">
-          This is an alert regarding your subscription for <strong style="color: #1e293b;">\${subscriptionName}</strong>.
+          This is an alert regarding your subscription for <strong style="color: #1e293b;">${subscriptionName}</strong>.
         </p>
         <div style="background-color: #f1f5f9; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
           <table style="width: 100%; border-collapse: collapse;">
             <tr>
               <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Subscription</td>
-              <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #1e293b; text-align: right;">\${subscriptionName}</td>
+              <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #1e293b; text-align: right;">${subscriptionName}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Category</td>
-              <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #1e293b; text-align: right;">\${category}</td>
+              <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #1e293b; text-align: right;">${category}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Provider</td>
-              <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #1e293b; text-align: right;">\${provider || 'N/A'}</td>
+              <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #1e293b; text-align: right;">${provider || 'N/A'}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Cost</td>
-              <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #1e293b; text-align: right;">\${cost} (\${billingCycle})</td>
+              <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #1e293b; text-align: right;">${cost} (${billingCycle})</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Expiry Date</td>
-              <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: \${badgeColor}; text-align: right;">\${formattedDate}</td>
+              <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: ${badgeColor}; text-align: right;">${formattedDate}</td>
             </tr>
           </table>
         </div>
         <div style="text-align: center;">
-          <a href="\${process.env.FRONTEND_URL || 'http://localhost:3000'}/subscriptions" style="display: inline-block; background-color: #6366f1; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 600;">Please renew or update this subscription in TNT Pulse</a>
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/subscriptions" style="display: inline-block; background-color: #6366f1; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 600;">Please renew or update this subscription in TNT Pulse</a>
+        </div>
+      </div>
+      <div style="text-align: center; margin-top: 24px; font-size: 12px; color: #94a3b8;">
+        <p style="margin: 0 0 4px 0;">TNT Innovations</p>
+        <p style="margin: 0;">TNT Innovations</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({ to, subject, html });
+};
+
+export const sendBatchedSubscriptionAlertEmail = async ({ to, name, subscriptions }) => {
+  if (!subscriptions || subscriptions.length === 0) return { success: true };
+
+  const hasExpired = subscriptions.some(s => s.daysRemaining < 0);
+  const hasUrgent = subscriptions.some(s => s.daysRemaining >= 0 && s.daysRemaining <= 3);
+
+  let urgencyLabel = 'Reminder';
+  let badgeColor = '#f59e0b';
+  let badgeBg = '#fffbeb';
+  let subjectPrefix = '⏰ Reminder:';
+  
+  if (hasExpired) {
+    urgencyLabel = 'EXPIRED';
+    badgeColor = '#ef4444';
+    badgeBg = '#fef2f2';
+    subjectPrefix = '⚠️ EXPIRED:';
+  } else if (hasUrgent) {
+    urgencyLabel = 'URGENT';
+    badgeColor = '#ef4444';
+    badgeBg = '#fef2f2';
+    subjectPrefix = '🚨 URGENT:';
+  }
+
+  const subject = `${subjectPrefix} ${subscriptions.length} Subscriptions require your attention`;
+
+  const rowsHtml = subscriptions.map(sub => {
+    const formattedDate = new Date(sub.expiryDate).toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'short', year: 'numeric'
+    });
+    
+    let subBadgeColor = '#f59e0b';
+    let subBadgeText = `Expires in ${sub.daysRemaining} days`;
+    
+    if (sub.daysRemaining < 0) {
+      subBadgeColor = '#ef4444';
+      subBadgeText = `Expired ${Math.abs(sub.daysRemaining)} days ago`;
+    } else if (sub.daysRemaining <= 3) {
+      subBadgeColor = '#ef4444';
+    }
+
+    return `
+      <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 12px; border-left: 4px solid ${subBadgeColor};">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h3 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 0;">${sub.subscriptionName}</h3>
+          <span style="font-size: 12px; font-weight: 700; color: ${subBadgeColor}; background-color: ${subBadgeColor}15; padding: 4px 8px; border-radius: 12px;">${subBadgeText}</span>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr>
+            <td style="padding: 4px 0; color: #64748b; width: 30%;">Provider:</td>
+            <td style="padding: 4px 0; color: #1e293b; font-weight: 600; text-align: right;">${sub.provider || 'N/A'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #64748b;">Cost:</td>
+            <td style="padding: 4px 0; color: #1e293b; font-weight: 600; text-align: right;">${sub.cost} (${sub.billingCycle})</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #64748b;">Expiry Date:</td>
+            <td style="padding: 4px 0; font-weight: 600; color: ${subBadgeColor}; text-align: right;">${formattedDate}</td>
+          </tr>
+        </table>
+      </div>
+    `;
+  }).join('');
+
+  const html = `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 24px; background-color: #f8fafc;">
+      <div style="text-align: center; margin-bottom: 32px;">
+        <div style="font-size: 28px; font-weight: 800; color: #6366f1; letter-spacing: -0.5px;">TNT <span style="color: #1e293b;">Innovations</span></div>
+      </div>
+      <div style="background-color: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); ${hasExpired || hasUrgent ? 'border-top: 4px solid #ef4444;' : ''}">
+        <div style="display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background-color: ${badgeBg}; color: ${badgeColor}; margin-bottom: 20px;">${urgencyLabel}</div>
+        <h1 style="font-size: 20px; font-weight: 700; color: #1e293b; margin: 0 0 8px 0;">Hello ${name},</h1>
+        <p style="font-size: 15px; color: #475569; line-height: 1.6; margin: 0 0 24px 0;">
+          This is a combined alert regarding <strong style="color: #1e293b;">${subscriptions.length} subscriptions</strong> that require your attention.
+        </p>
+        
+        <div style="background-color: #f1f5f9; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+          ${rowsHtml}
+        </div>
+        
+        <div style="text-align: center;">
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/subscriptions" style="display: inline-block; background-color: #6366f1; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 600;">Manage Subscriptions in TNT Pulse</a>
         </div>
       </div>
       <div style="text-align: center; margin-top: 24px; font-size: 12px; color: #94a3b8;">

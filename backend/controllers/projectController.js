@@ -122,6 +122,13 @@ export const createProject = async (req, res) => {
 
     const [projectRows] = await pool.execute('SELECT * FROM projects WHERE id = ?', [projectId]);
 
+    // Trigger immediate alert check for any newly created subscriptions
+    if (new_subscriptions && new_subscriptions.length > 0) {
+      import('../utils/cronJobs.js')
+        .then((m) => m.checkSubscriptionExpiryAlerts())
+        .catch((err) => console.error('Immediate sub alert check failed:', err));
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Project created successfully',

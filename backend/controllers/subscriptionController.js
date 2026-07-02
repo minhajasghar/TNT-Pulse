@@ -53,6 +53,11 @@ export const createSubscription = async (req, res) => {
 
     const [newSub] = await pool.execute('SELECT * FROM subscriptions WHERE id = ?', [subscriptionId]);
 
+    // Trigger immediate alert check for newly created subscriptions
+    import('../utils/cronJobs.js')
+      .then((m) => m.checkSubscriptionExpiryAlerts(subscriptionId))
+      .catch((err) => console.error('Immediate sub alert check failed:', err));
+
     res.status(201).json({ success: true, subscription: newSub[0] });
   } catch (error) {
     console.error('Error creating subscription:', error);
@@ -95,7 +100,7 @@ export const getAllSubscriptions = async (req, res) => {
       params.push(status);
     }
 
-    query += ` ORDER BY s.expiry_date ASC `;
+    query += ` ORDER BY s.created_at DESC `;
 
     const [subscriptions] = await pool.execute(query, params);
 
@@ -202,6 +207,8 @@ export const updateSubscription = async (req, res) => {
       values
     );
 
+    const [updatedSub] = await pool.execute('SELECT * FROM subscriptions WHERE id = ?', [id]);
+
     await logActivity(
       req.user.id,
       'update_subscription',
@@ -211,8 +218,6 @@ export const updateSubscription = async (req, res) => {
       updatedSub[0],
       req.ip
     );
-
-    const [updatedSub] = await pool.execute('SELECT * FROM subscriptions WHERE id = ?', [id]);
 
     res.json({ success: true, subscription: updatedSub[0] });
   } catch (error) {
@@ -370,7 +375,7 @@ export const getSubscriptionsByProject = async (req, res) => {
       params.push(req.user.id);
     }
 
-    query += ` ORDER BY p.name ASC, s.expiry_date ASC `;
+    query += ` ORDER BY p.name ASC, s.created_at DESC `;
 
     const [rows] = await pool.execute(query, params);
 
@@ -389,13 +394,18 @@ export const getSubscriptionsByProject = async (req, res) => {
         name: row.name,
         category: row.category,
         provider: row.provider,
-        expiry_date: row.expiry_date,
-        days_remaining: row.days_remaining,
+        description: row.description,
         cost: row.cost,
         currency: row.currency,
         billing_cycle: row.billing_cycle,
+        start_date: row.start_date,
+        expiry_date: row.expiry_date,
+        alert_days_before: row.alert_days_before,
         auto_renew: row.auto_renew,
-        status: row.status
+        status: row.status,
+        account_email: row.account_email,
+        notes: row.notes,
+        days_remaining: row.days_remaining
       });
     });
 
@@ -407,6 +417,7 @@ export const getSubscriptionsByProject = async (req, res) => {
         WHERE s.id NOT IN (
           SELECT subscription_id FROM subscription_projects
         )
+        ORDER BY s.created_at DESC
       `);
       unlinkedRows = uRows;
     }
@@ -422,5 +433,27 @@ export const getSubscriptionsByProject = async (req, res) => {
   } catch (error) {
     console.error('Error getting subscriptions by project:', error);
     res.status(500).json({ success: false, message: 'Server error retrieving subscriptions by project' });
+  }
+};
+
+export const getUniqueEmails = async (req, res) => {
+  try {
+    const [rows] = await pool.execute(`
+      SELECT DISTINCT account_email 
+      FROM subscriptions 
+      WHERE account_email IS NOT NULL AND account_email != ''
+    `);
+    
+    // account_email might be comma-separated, so split and get unique
+    const uniqueEmails = new Set();
+    rows.forEach(row => {
+      const emails = row.account_email.split(',').map(e => e.trim()).filter(Boolean);
+      emails.forEach(e => uniqueEmails.add(e));
+    });
+
+    res.json({ success: true, emails: Array.from(uniqueEmails).sort() });
+  } catch (error) {
+    console.error('Error getting unique emails:', error);
+    res.status(500).json({ success: false, message: 'Server error retrieving unique emails' });
   }
 };

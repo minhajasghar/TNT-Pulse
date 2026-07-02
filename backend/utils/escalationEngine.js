@@ -1,5 +1,5 @@
 import pool from '../config/db.js';
-import { sendEscalationEmail } from './emailService.js';
+import { sendEscalationEmail, sendSubscriptionAlertEmail } from './emailService.js';
 
 export function daysBetween(date1, date2) {
   const d1 = new Date(date1);
@@ -105,6 +105,25 @@ async function fireSubscriptionEscalationAlert(subscription, rule, daysRemaining
       ruleName: rule.rule_name,
       daysRemaining,
       isUrgent: rule.frequency === 'daily'
+    });
+  }
+
+  const accountEmails = (subscription.account_email || '')
+    .split(',')
+    .map(e => e.trim())
+    .filter(Boolean);
+
+  for (const email of accountEmails) {
+    await sendSubscriptionAlertEmail({
+      to: email,
+      name: email.split('@')[0],
+      subscriptionName: subscription.name,
+      category: subscription.category || 'other',
+      provider: subscription.provider,
+      expiryDate: subscription.expiry_date,
+      daysRemaining,
+      cost: subscription.cost,
+      billingCycle: subscription.billing_cycle,
     });
   }
 
@@ -244,7 +263,7 @@ export async function evaluateEscalationRules() {
 
     if (subscriptionRules.length > 0) {
       const [subscriptions] = await pool.execute(`
-        SELECT id, name, start_date, expiry_date
+        SELECT id, name, start_date, expiry_date, account_email, cost, billing_cycle, category, provider
         FROM subscriptions
         WHERE status = 'active'
       `);

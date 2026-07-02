@@ -162,6 +162,11 @@ export default function SubscriptionsPage() {
     enabled: mode === 'add' && step === 1
   });
 
+  const { data: uniqueEmailsData } = useQuery({
+    queryKey: ['subscription-emails'],
+    queryFn: () => api.get('/api/subscriptions/emails').then(res => res.data.emails),
+  });
+
   // Existing Mutations
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/subscriptions/${id}`),
@@ -284,11 +289,23 @@ export default function SubscriptionsPage() {
       errorMessage = 'Expiry date must be after start date';
     }
 
+    if (card.account_email) {
+      const emails = card.account_email.split(',').map((e: string) => e.trim()).filter(Boolean);
+      const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+      const invalidEmails = emails.filter((e: string) => !emailRegex.test(e));
+      if (invalidEmails.length > 0) {
+        isValid = false;
+        errorMessage = 'Invalid email address';
+      }
+    }
+
     return { ...card, isValid, hasError: !isValid, errorMessage };
   };
 
   const handleSaveAll = async () => {
+    // Validate first
     const validatedServices = services.map(validateCard);
+    
     setServices(validatedServices);
     
     if (validatedServices.some(s => !s.isValid)) {
@@ -535,7 +552,7 @@ export default function SubscriptionsPage() {
                             <div>
                               <div className="font-medium text-gray-900 flex items-center gap-2">
                                 {sub.name}
-                                {sub.auto_renew && <RefreshCw size={14} className="text-indigo-500" />}
+                                {!!sub.auto_renew && <RefreshCw size={14} className="text-indigo-500" />}
                               </div>
                               <div className="text-sm text-gray-500">{sub.provider || sub.category.replace('_', ' ')}</div>
                             </div>
@@ -644,7 +661,7 @@ export default function SubscriptionsPage() {
                               <div>
                                 <div className="font-medium text-gray-900 flex items-center gap-2">
                                   {sub.name}
-                                  {sub.auto_renew && <RefreshCw size={14} className="text-indigo-500" />}
+                                  {!!sub.auto_renew && <RefreshCw size={14} className="text-indigo-500" />}
                                 </div>
                                 <div className="text-sm text-gray-500">{sub.provider || sub.category.replace('_', ' ')}</div>
                               </div>
@@ -719,7 +736,7 @@ export default function SubscriptionsPage() {
                               <div>
                                 <div className="font-medium text-gray-900 flex items-center gap-2">
                                   {sub.name}
-                                  {sub.auto_renew && <RefreshCw size={14} className="text-indigo-500" />}
+                                  {!!sub.auto_renew && <RefreshCw size={14} className="text-indigo-500" />}
                                 </div>
                                 <div className="text-sm text-gray-500">{sub.provider || sub.category.replace('_', ' ')}</div>
                               </div>
@@ -953,12 +970,18 @@ export default function SubscriptionsPage() {
                               <label className="block text-sm font-medium text-gray-700 mb-1">Account / Alert Emails</label>
                               <input 
                                 type="text" 
+                                list={`saved-emails-${service.id}`}
                                 value={service.account_email}
                                 onChange={e => updateService(service.id, 'account_email', e.target.value)}
                                 placeholder="admin@company.com, alerts@company.com"
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
                                 disabled={service.isSaved}
                               />
+                              <datalist id={`saved-emails-${service.id}`}>
+                                {uniqueEmailsData?.map((email: string) => (
+                                  <option key={email} value={email} />
+                                ))}
+                              </datalist>
                             </div>
                           </div>
 
