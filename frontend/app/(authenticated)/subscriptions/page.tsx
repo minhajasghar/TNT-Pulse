@@ -247,7 +247,12 @@ export default function SubscriptionsPage() {
   };
 
   const addServiceCard = () => {
-    setServices([...services, createEmptyService()]);
+    let newService = createEmptyService();
+    if (services.length > 0) {
+      const lastService = services[services.length - 1];
+      newService.account_email = lastService.account_email;
+    }
+    setServices([...services, newService]);
   };
 
   const removeServiceCard = (id: string) => {
