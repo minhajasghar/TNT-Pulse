@@ -56,7 +56,7 @@ Built entirely in-house by the TNT Innovations development team.
 
 ### 🔁 Subscription Tracking
 - Track domains, hosting, APIs, SSL certificates, software licenses, databases
-- Add subscriptions directly from project creation or project detail page
+- Add multiple subscriptions at once from a single dedicated flow — select project, add all services(domain, hosting, SSL, APIs) in one session
 - Link subscriptions to one or more projects
 - **By Project view** — see all subscriptions grouped under their project
 - Cost tracking with billing cycle (monthly / quarterly / yearly / one-time)
@@ -128,87 +128,16 @@ Built entirely in-house by the TNT Innovations development team.
 
 ## 📁 Project Structure
 
-```
-tnt-pulse/
-├── backend/
-│   ├── config/
-│   │   ├── db.js                  # MySQL connection pool
-│   │   └── multer.js              # File upload config
-│   ├── controllers/
-│   │   ├── authController.js
-│   │   ├── userController.js
-│   │   ├── projectController.js
-│   │   ├── taskController.js
-│   │   ├── dashboardController.js
-│   │   ├── alertController.js
-│   │   ├── announcementController.js
-│   │   ├── documentController.js
-│   │   ├── reportController.js
-│   │   ├── subscriptionController.js
-│   │   ├── escalationRuleController.js
-│   │   ├── milestoneController.js
-│   │   ├── requirementController.js
-│   │   ├── activityController.js
-│   │   └── timeController.js
-│   ├── middleware/
-│   │   └── authMiddleware.js      # JWT + role + permission checks
-│   ├── routes/                    # Express route definitions
-│   ├── utils/
-│   │   ├── cronJobs.js            # Scheduled jobs (tasks, unified escalation)
-│   │   ├── escalationEngine.js    # Core escalation evaluation logic
-│   │   └── emailService.js        # All email templates (HTML, inline CSS)
-│   ├── uploads/                   # Uploaded files (gitignored)
-│   └── server.js
-├── frontend/
-│   ├── app/
-│   │   ├── (auth)/
-│   │   │   └── login/             # Login page
-│   │   └── (authenticated)/
-│   │       ├── dashboard/
-│   │       ├── projects/
-│   │       │   └── [id]/          # Project detail
-│   │       ├── tasks/
-│   │       ├── team/
-│   │       ├── documents/
-│   │       ├── announcements/
-│   │       ├── subscriptions/
-│   │       ├── reports/
-│   │       ├── activity/
-│   │       └── settings/
-│   ├── components/
-│   │   ├── layout/
-│   │   │   ├── Sidebar.tsx
-│   │   │   └── Navbar.tsx
-│   │   ├── projects/
-│   │   │   └── CreateProjectModal.tsx
-│   │   ├── subscriptions/
-│   │   │   └── SubscriptionModal.tsx
-│   │   ├── settings/
-│   │   │   └── EscalationRuleModal.tsx
-│   │   ├── tasks/
-│   │   │   └── TaskDetailModal.tsx
-│   │   └── ui/
-│   │       ├── RoleSelector.tsx
-│   │       ├── StatsCard.tsx
-│   │       ├── Badge.tsx
-│   │       ├── Toast.tsx
-│   │       └── LoadingSkeleton.tsx
-│   └── lib/
-│       ├── store.ts               # Zustand store with permissions
-│       ├── api.ts                 # Axios instance with interceptors
-│       └── utils.ts               # Formatting, color helpers
-└── database/
-    ├── schema.sql                 # Full initial schema
-    └── migrations/
-        ├── 001_add_phone.sql
-        ├── 002_add_announcements.sql
-        ├── 003_add_documents.sql
-        ├── 004_add_time_tracking.sql
-        ├── 005_project_recycle.sql
-        ├── 006_project_member_roles.sql
-        ├── 007_subscriptions.sql
-        └── 008_alert_escalation_rules.sql
-```
+The project is organized into three 
+main directories:
+
+- **`/backend`** — Node.js + Express 
+  REST API with controllers, routes, 
+  middleware, and utilities
+- **`/frontend`** — Next.js 14 App Router 
+  with TypeScript and Tailwind CSS
+- **`/database`** — MySQL schema and 
+  incremental migration files```
 
 ---
 
