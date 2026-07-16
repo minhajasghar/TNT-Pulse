@@ -14,6 +14,11 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
+const originalExecute = pool.execute.bind(pool);
+pool.execute = function (sql, params) {
+  return pool.query(sql, params);
+};
+
 const testConnection = async () => {
   try {
     const connection = await pool.getConnection();
