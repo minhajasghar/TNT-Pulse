@@ -260,7 +260,7 @@ pm2 monit
 
 ## 👨‍💻 Developer
 
-**Muhammad Minhaj Asghar**
+**Minhaj Asghar**
 
 GitHub: https://github.com/minhajasghar
 
