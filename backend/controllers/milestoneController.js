@@ -3,13 +3,14 @@ import pool from '../config/db.js';
 const logActivity = async (userId, action, entityType, entityId, oldValue, newValue, ipAddress) => {
   await pool.execute(
     'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [userId, action, entityType, entityId, oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
+    [Number(userId), action, entityType, Number(entityId), oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
   );
 };
 
 export const createMilestone = async (req, res, next) => {
   try {
-    const { project_id, title, due_date } = req.body;
+    const project_id = Number(req.body.project_id);
+    const { title, due_date } = req.body;
 
     if (!project_id || !title) {
       return res.status(400).json({ success: false, message: 'project_id and title are required' });
@@ -25,7 +26,7 @@ export const createMilestone = async (req, res, next) => {
       [project_id, title, due_date || null],
     );
 
-    const [milestone] = await pool.execute('SELECT * FROM milestones WHERE id = ?', [result.insertId]);
+    const [milestone] = await pool.execute('SELECT * FROM milestones WHERE id = ?', [Number(result.insertId)]);
 
     return res.status(201).json({ success: true, message: 'Milestone created', data: milestone[0] });
   } catch (err) {
@@ -40,7 +41,7 @@ export const getMilestonesByProject = async (req, res, next) => {
        FROM milestones
        WHERE project_id = ?
        ORDER BY due_date ASC`,
-      [req.params.project_id],
+      [Number(req.params.project_id)],
     );
 
     const enriched = milestones.map(m => ({
@@ -56,7 +57,8 @@ export const getMilestonesByProject = async (req, res, next) => {
 
 export const updateMilestone = async (req, res, next) => {
   try {
-    const [existing] = await pool.execute('SELECT * FROM milestones WHERE id = ?', [req.params.id]);
+    const milestoneId = Number(req.params.id);
+    const [existing] = await pool.execute('SELECT * FROM milestones WHERE id = ?', [milestoneId]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Milestone not found' });
     }
@@ -83,7 +85,7 @@ export const updateMilestone = async (req, res, next) => {
     const setClauses = Object.keys(updates).map(key => `${key} = ?`).join(', ');
     const updateValues = Object.values(updates);
 
-    await pool.execute(`UPDATE milestones SET ${setClauses} WHERE id = ?`, [...updateValues, req.params.id]);
+    await pool.execute(`UPDATE milestones SET ${setClauses} WHERE id = ?`, [...updateValues, milestoneId]);
 
     const oldData = {};
     const newData = {};
@@ -92,9 +94,9 @@ export const updateMilestone = async (req, res, next) => {
       newData[change.field] = change.new;
     }
 
-    await logActivity(req.user.id, 'update_milestone', 'milestone', req.params.id, oldData, newData, req.ip);
+    await logActivity(req.user.id, 'update_milestone', 'milestone', milestoneId, oldData, newData, req.ip);
 
-    const [updated] = await pool.execute('SELECT * FROM milestones WHERE id = ?', [req.params.id]);
+    const [updated] = await pool.execute('SELECT * FROM milestones WHERE id = ?', [milestoneId]);
 
     return res.status(200).json({ success: true, message: 'Milestone updated', data: updated[0] });
   } catch (err) {
@@ -104,12 +106,13 @@ export const updateMilestone = async (req, res, next) => {
 
 export const deleteMilestone = async (req, res, next) => {
   try {
-    const [existing] = await pool.execute('SELECT id, title FROM milestones WHERE id = ?', [req.params.id]);
+    const milestoneId = Number(req.params.id);
+    const [existing] = await pool.execute('SELECT id, title FROM milestones WHERE id = ?', [milestoneId]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Milestone not found' });
     }
 
-    await pool.execute('DELETE FROM milestones WHERE id = ?', [req.params.id]);
+    await pool.execute('DELETE FROM milestones WHERE id = ?', [milestoneId]);
 
     return res.status(200).json({ success: true, message: 'Milestone deleted' });
   } catch (err) {

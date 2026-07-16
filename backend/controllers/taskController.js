@@ -3,20 +3,23 @@ import pool from '../config/db.js';
 const logActivity = async (userId, action, entityType, entityId, oldValue, newValue, ipAddress) => {
   await pool.execute(
     'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [userId, action, entityType, entityId, oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
+    [Number(userId), action, entityType, Number(entityId), oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
   );
 };
 
 const createAlert = async (userId, type, message, entityType, entityId) => {
   await pool.execute(
     'INSERT INTO alerts (user_id, type, message, related_entity_type, related_entity_id) VALUES (?, ?, ?, ?, ?)',
-    [userId, type, message, entityType, entityId],
+    [Number(userId), type, message, entityType, Number(entityId)],
   );
 };
 
 export const createTask = async (req, res, next) => {
   try {
-    const { project_id, title, description, assigned_to, due_date, priority, estimated_hours } = req.body;
+    const project_id = Number(req.body.project_id);
+    const { title, description } = req.body;
+    const assigned_to = req.body.assigned_to ? Number(req.body.assigned_to) : null;
+    const { due_date, priority, estimated_hours } = req.body;
 
     if (!project_id || !title) {
       return res.status(400).json({ success: false, message: 'project_id and title are required' });
@@ -40,7 +43,7 @@ export const createTask = async (req, res, next) => {
     const [result] = await pool.execute(
       `INSERT INTO tasks (project_id, title, description, assigned_to, created_by, priority, estimated_hours, due_date)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [project_id, title, description || null, assigned_to || null, req.user.id, priority || 'medium', estimated_hours || null, due_date || null],
+      [project_id, title, description || null, assigned_to || null, Number(req.user.id), priority || 'medium', estimated_hours || null, due_date || null],
     );
 
     if (assigned_to) {
@@ -65,7 +68,7 @@ export const createTask = async (req, res, next) => {
 
 export const getTasksByProject = async (req, res, next) => {
   try {
-    const { project_id } = req.params;
+    const project_id = Number(req.params.project_id);
     let query = `
       SELECT t.*, u.name AS assigned_user_name,
              DATEDIFF(t.due_date, CURDATE()) AS days_remaining
@@ -122,7 +125,7 @@ export const getMyTasks = async (req, res, next) => {
        LEFT JOIN users u ON u.id = t.assigned_to
        WHERE t.assigned_to = ?
        ORDER BY t.due_date ASC`,
-      [req.user.id],
+      [Number(req.user.id)],
     );
 
     const enriched = tasks.map(task => ({
@@ -138,7 +141,8 @@ export const getMyTasks = async (req, res, next) => {
 
 export const updateTask = async (req, res, next) => {
   try {
-    const [existing] = await pool.execute('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
+    const taskId = Number(req.params.id);
+    const [existing] = await pool.execute('SELECT * FROM tasks WHERE id = ?', [taskId]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
@@ -179,10 +183,10 @@ export const updateTask = async (req, res, next) => {
     const setClauses = Object.keys(updates).map(key => `${key} = ?`).join(', ');
     const updateValues = Object.values(updates);
 
-    await pool.execute(`UPDATE tasks SET ${setClauses} WHERE id = ?`, [...updateValues, req.params.id]);
+    await pool.execute(`UPDATE tasks SET ${setClauses} WHERE id = ?`, [...updateValues, taskId]);
 
     if (newStatus && newStatus !== oldStatus) {
-      await logActivity(req.user.id, 'update_task_status', 'task', req.params.id, { status: oldStatus }, { status: newStatus }, req.ip);
+      await logActivity(req.user.id, 'update_task_status', 'task', taskId, { status: oldStatus }, { status: newStatus }, req.ip);
     }
 
     const [updated] = await pool.execute(
@@ -190,7 +194,7 @@ export const updateTask = async (req, res, next) => {
        FROM tasks t
        LEFT JOIN users u ON u.id = t.assigned_to
        WHERE t.id = ?`,
-      [req.params.id],
+      [taskId],
     );
 
     return res.status(200).json({ success: true, message: 'Task updated successfully', data: updated[0] });
@@ -201,14 +205,15 @@ export const updateTask = async (req, res, next) => {
 
 export const deleteTask = async (req, res, next) => {
   try {
-    const [existing] = await pool.execute('SELECT id, title FROM tasks WHERE id = ?', [req.params.id]);
+    const taskId = Number(req.params.id);
+    const [existing] = await pool.execute('SELECT id, title FROM tasks WHERE id = ?', [taskId]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
 
-    await pool.execute('DELETE FROM tasks WHERE id = ?', [req.params.id]);
+    await pool.execute('DELETE FROM tasks WHERE id = ?', [taskId]);
 
-    await logActivity(req.user.id, 'delete_task', 'task', req.params.id, { title: existing[0].title }, null, req.ip);
+    await logActivity(req.user.id, 'delete_task', 'task', taskId, { title: existing[0].title }, null, req.ip);
 
     return res.status(200).json({ success: true, message: 'Task deleted successfully' });
   } catch (err) {
@@ -219,6 +224,7 @@ export const deleteTask = async (req, res, next) => {
 export const addComment = async (req, res, next) => {
   try {
     const { content } = req.body;
+    const taskId = Number(req.params.id);
 
     if (!content) {
       return res.status(400).json({ success: false, message: 'Content is required' });
@@ -226,7 +232,7 @@ export const addComment = async (req, res, next) => {
 
     const [task] = await pool.execute(
       'SELECT t.id, t.title, t.assigned_to, t.project_id FROM tasks t WHERE t.id = ?',
-      [req.params.id],
+      [taskId],
     );
 
     if (task.length === 0) {
@@ -235,7 +241,7 @@ export const addComment = async (req, res, next) => {
 
     const [member] = await pool.execute(
       'SELECT id FROM project_members WHERE project_id = ? AND user_id = ?',
-      [task[0].project_id, req.user.id],
+      [task[0].project_id, Number(req.user.id)],
     );
 
     if (member.length === 0) {
@@ -244,7 +250,7 @@ export const addComment = async (req, res, next) => {
 
     const [result] = await pool.execute(
       'INSERT INTO comments (entity_type, entity_id, user_id, content) VALUES (?, ?, ?, ?)',
-      ['task', req.params.id, req.user.id, content],
+      ['task', taskId, Number(req.user.id), content],
     );
 
     if (task[0].assigned_to && parseInt(task[0].assigned_to) !== parseInt(req.user.id)) {
@@ -253,7 +259,7 @@ export const addComment = async (req, res, next) => {
         'new_comment',
         `New comment on task "${task[0].title}"`,
         'task',
-        req.params.id,
+        taskId,
       );
     }
 
@@ -273,13 +279,14 @@ export const addComment = async (req, res, next) => {
 
 export const getTaskComments = async (req, res, next) => {
   try {
+    const taskId = Number(req.params.id);
     const [comments] = await pool.execute(
       `SELECT c.id, c.content, c.created_at, u.name AS user_name
        FROM comments c
        JOIN users u ON u.id = c.user_id
        WHERE c.entity_type = 'task' AND c.entity_id = ?
        ORDER BY c.created_at ASC`,
-      [req.params.id],
+      [taskId],
     );
 
     return res.status(200).json({ success: true, data: comments });

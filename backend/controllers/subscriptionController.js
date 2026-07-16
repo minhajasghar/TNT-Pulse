@@ -4,7 +4,7 @@ const logActivity = async (userId, action, entityType, entityId, oldValue, newVa
   try {
     await pool.execute(
       'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [userId, action, entityType, entityId, oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress || null],
+      [Number(userId), action, entityType, Number(entityId), oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress || null],
     );
   } catch (err) {
     console.error('Failed to log activity:', err.message);
@@ -25,8 +25,8 @@ export const createSubscription = async (req, res) => {
         start_date, expiry_date, alert_days_before, auto_renew, account_email, notes, created_by
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        name, category, provider || null, description || null, cost || 0, billing_cycle || 'monthly', currency || 'USD',
-        start_date, expiry_date, alert_days_before, auto_renew ? 1 : 0, account_email || null, notes || null, req.user.id
+        name, category, provider || null, description || null, Number(cost) || 0, billing_cycle || 'monthly', currency || 'USD',
+        start_date || null, expiry_date || null, Number(alert_days_before) || 7, auto_renew ? 1 : 0, account_email || null, notes || null, Number(req.user.id)
       ]
     );
 
@@ -36,7 +36,7 @@ export const createSubscription = async (req, res) => {
       for (const projectId of linked_project_ids) {
         await pool.execute(
           'INSERT INTO subscription_projects (subscription_id, project_id) VALUES (?, ?)',
-          [subscriptionId, projectId]
+          [Number(subscriptionId), Number(projectId)]
         );
       }
     }
@@ -45,13 +45,13 @@ export const createSubscription = async (req, res) => {
       req.user.id,
       'create_subscription',
       'subscription',
-      subscriptionId,
+      Number(subscriptionId),
       null,
       { name, category, cost, billing_cycle },
       req.ip
     );
 
-    const [newSub] = await pool.execute('SELECT * FROM subscriptions WHERE id = ?', [subscriptionId]);
+    const [newSub] = await pool.execute('SELECT * FROM subscriptions WHERE id = ?', [Number(subscriptionId)]);
 
     // Trigger immediate alert check for newly created subscriptions
     import('../utils/cronJobs.js')
@@ -125,13 +125,13 @@ export const getAllSubscriptions = async (req, res) => {
 
 export const getSubscriptionById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const subscriptionId = Number(req.params.id);
     const isSuperOrManager = ['super_admin', 'manager'].includes(req.user.role);
 
     const [subscriptions] = await pool.execute(
       `SELECT s.*, DATEDIFF(s.expiry_date, CURDATE()) as days_remaining
        FROM subscriptions s WHERE s.id = ?`,
-      [id]
+      [subscriptionId]
     );
 
     if (subscriptions.length === 0) {
@@ -145,7 +145,7 @@ export const getSubscriptionById = async (req, res) => {
        FROM projects p
        JOIN subscription_projects sp ON sp.project_id = p.id
        WHERE sp.subscription_id = ?`,
-      [id]
+      [subscriptionId]
     );
 
     subscription.linked_projects = projects;
@@ -155,7 +155,7 @@ export const getSubscriptionById = async (req, res) => {
         `SELECT 1 FROM project_members pm
          JOIN subscription_projects sp ON sp.project_id = pm.project_id
          WHERE pm.user_id = ? AND sp.subscription_id = ? LIMIT 1`,
-        [req.user.id, id]
+        [Number(req.user.id), subscriptionId]
       );
       
       if (membership.length === 0) {
@@ -172,10 +172,10 @@ export const getSubscriptionById = async (req, res) => {
 
 export const updateSubscription = async (req, res) => {
   try {
-    const { id } = req.params;
+    const subscriptionId = Number(req.params.id);
     const updates = req.body;
     
-    const [oldSubs] = await pool.execute('SELECT * FROM subscriptions WHERE id = ?', [id]);
+    const [oldSubs] = await pool.execute('SELECT * FROM subscriptions WHERE id = ?', [subscriptionId]);
     if (oldSubs.length === 0) {
       return res.status(404).json({ success: false, message: 'Subscription not found' });
     }
@@ -201,19 +201,19 @@ export const updateSubscription = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No fields provided to update' });
     }
 
-    values.push(id);
+    values.push(subscriptionId);
     await pool.execute(
       `UPDATE subscriptions SET ${fieldsToUpdate.join(', ')} WHERE id = ?`,
       values
     );
 
-    const [updatedSub] = await pool.execute('SELECT * FROM subscriptions WHERE id = ?', [id]);
+    const [updatedSub] = await pool.execute('SELECT * FROM subscriptions WHERE id = ?', [subscriptionId]);
 
     await logActivity(
       req.user.id,
       'update_subscription',
       'subscription',
-      id,
+      subscriptionId,
       oldSub,
       updatedSub[0],
       req.ip
@@ -228,18 +228,18 @@ export const updateSubscription = async (req, res) => {
 
 export const deleteSubscription = async (req, res) => {
   try {
-    const { id } = req.params;
-    const [oldSubsForDelete] = await pool.execute('SELECT * FROM subscriptions WHERE id = ?', [id]);
+    const subscriptionId = Number(req.params.id);
+    const [oldSubsForDelete] = await pool.execute('SELECT * FROM subscriptions WHERE id = ?', [subscriptionId]);
     const oldSubForDelete = oldSubsForDelete[0];
     
-    await pool.execute('DELETE FROM subscriptions WHERE id = ?', [id]);
+    await pool.execute('DELETE FROM subscriptions WHERE id = ?', [subscriptionId]);
     
     if (oldSubForDelete) {
       await logActivity(
         req.user.id,
         'delete_subscription',
         'subscription',
-        id,
+        subscriptionId,
         { name: oldSubForDelete.name, category: oldSubForDelete.category },
         null,
         req.ip
@@ -255,8 +255,8 @@ export const deleteSubscription = async (req, res) => {
 
 export const linkProject = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { project_id } = req.body;
+    const subscriptionId = Number(req.params.id);
+    const project_id = Number(req.body.project_id);
 
     if (!project_id) {
        return res.status(400).json({ success: false, message: 'project_id is required' });
@@ -264,7 +264,7 @@ export const linkProject = async (req, res) => {
 
     const [existing] = await pool.execute(
       'SELECT id FROM subscription_projects WHERE subscription_id = ? AND project_id = ?',
-      [id, project_id]
+      [subscriptionId, project_id]
     );
 
     if (existing.length > 0) {
@@ -273,7 +273,7 @@ export const linkProject = async (req, res) => {
 
     await pool.execute(
       'INSERT INTO subscription_projects (subscription_id, project_id) VALUES (?, ?)',
-      [id, project_id]
+      [subscriptionId, project_id]
     );
 
     res.json({ success: true, message: 'Project linked successfully' });
@@ -285,11 +285,12 @@ export const linkProject = async (req, res) => {
 
 export const unlinkProject = async (req, res) => {
   try {
-    const { id, projectId } = req.params;
+    const subscriptionId = Number(req.params.id);
+    const projectId = Number(req.params.projectId);
 
     await pool.execute(
       'DELETE FROM subscription_projects WHERE subscription_id = ? AND project_id = ?',
-      [id, projectId]
+      [subscriptionId, projectId]
     );
 
     res.json({ success: true, message: 'Project unlinked successfully' });
@@ -301,7 +302,7 @@ export const unlinkProject = async (req, res) => {
 
 export const getProjectSubscriptions = async (req, res) => {
   try {
-    const { project_id } = req.params;
+    const project_id = Number(req.params.project_id);
 
     const [subscriptions] = await pool.execute(
       `SELECT s.*, DATEDIFF(s.expiry_date, CURDATE()) as days_remaining

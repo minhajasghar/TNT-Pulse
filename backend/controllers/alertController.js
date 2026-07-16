@@ -69,16 +69,17 @@ export const markAllAsRead = async (req, res, next) => {
 
 export const deleteAlert = async (req, res, next) => {
   try {
+    const alertId = Number(req.params.id);
     const [existing] = await pool.execute(
       'SELECT id FROM alerts WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user.id],
+      [alertId, Number(req.user.id)],
     );
 
     if (existing.length === 0) {
       return res.status(403).json({ success: false, message: 'Alert not found or access denied' });
     }
 
-    await pool.execute('DELETE FROM alerts WHERE id = ?', [req.params.id]);
+    await pool.execute('DELETE FROM alerts WHERE id = ?', [alertId]);
 
     return res.status(200).json({ success: true, message: 'Alert deleted' });
   } catch (err) {

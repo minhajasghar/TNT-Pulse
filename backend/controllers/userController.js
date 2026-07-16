@@ -4,7 +4,7 @@ import pool from '../config/db.js';
 const logActivity = async (userId, action, entityType, entityId, oldValue, newValue, ipAddress) => {
   await pool.execute(
     'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [userId, action, entityType, entityId, oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
+    [Number(userId), action, entityType, Number(entityId), oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
   );
 };
 
@@ -35,9 +35,10 @@ export const getAllUsers = async (req, res, next) => {
 
 export const getUserById = async (req, res, next) => {
   try {
+    const userId = Number(req.params.id);
     const [users] = await pool.execute(
       'SELECT id, name, email, role, status, last_seen, created_by, created_at, updated_at FROM users WHERE id = ?',
-      [req.params.id],
+      [userId],
     );
 
     if (users.length === 0) {
@@ -49,22 +50,22 @@ export const getUserById = async (req, res, next) => {
        FROM project_members pm
        JOIN projects p ON p.id = pm.project_id
        WHERE pm.user_id = ? AND p.status NOT IN ('completed', 'on_hold')`,
-      [req.params.id],
+      [userId],
     );
 
     const [activeTasks] = await pool.execute(
       "SELECT COUNT(*) AS count FROM tasks WHERE assigned_to = ? AND status != 'done'",
-      [req.params.id],
+      [userId],
     );
 
     const [completedTasks] = await pool.execute(
       "SELECT COUNT(*) AS count FROM tasks WHERE assigned_to = ? AND status = 'done'",
-      [req.params.id],
+      [userId],
     );
 
     const [overdueTasks] = await pool.execute(
       "SELECT COUNT(*) AS count FROM tasks WHERE assigned_to = ? AND due_date < CURDATE() AND status != 'done'",
-      [req.params.id],
+      [userId],
     );
 
     const [projects] = await pool.execute(
@@ -74,7 +75,7 @@ export const getUserById = async (req, res, next) => {
        JOIN project_members pm ON pm.project_id = p.id
        WHERE pm.user_id = ?
        ORDER BY p.name ASC`,
-      [req.params.id, req.params.id],
+      [userId, userId],
     );
 
     return res.status(200).json({
@@ -233,7 +234,7 @@ export const updatePermissions = async (req, res) => {
     console.log('Target user:', req.params.id);
     console.log('Permissions:', req.body);
 
-    const user_id = req.params.id;
+    const user_id = Number(req.params.id);
     const { permissions } = req.body;
 
     if (!permissions || !Array.isArray(permissions)) {
@@ -285,11 +286,12 @@ export const updatePermissions = async (req, res) => {
 
 export const suspendUser = async (req, res, next) => {
   try {
-    if (parseInt(req.user.id) === parseInt(req.params.id)) {
+    const userId = Number(req.params.id);
+    if (parseInt(req.user.id) === userId) {
       return res.status(400).json({ success: false, message: 'You cannot remove yourself' });
     }
 
-    const [existing] = await pool.execute('SELECT id, name, role, status FROM users WHERE id = ?', [req.params.id]);
+    const [existing] = await pool.execute('SELECT id, name, role, status FROM users WHERE id = ?', [userId]);
 
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -303,13 +305,13 @@ export const suspendUser = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'User is already suspended' });
     }
 
-    await pool.execute('UPDATE users SET status = ? WHERE id = ?', ['suspended', req.params.id]);
+    await pool.execute('UPDATE users SET status = ? WHERE id = ?', ['suspended', userId]);
 
     await logActivity(
       req.user.id,
       'suspend_user',
       'user',
-      req.params.id,
+      userId,
       { status: existing[0].status },
       { status: 'suspended' },
       req.ip,
@@ -326,11 +328,12 @@ export const suspendUser = async (req, res, next) => {
 
 export const reactivateUser = async (req, res, next) => {
   try {
-    if (parseInt(req.user.id) === parseInt(req.params.id)) {
+    const userId = Number(req.params.id);
+    if (parseInt(req.user.id) === userId) {
       return res.status(400).json({ success: false, message: 'You cannot reactivate yourself' });
     }
 
-    const [existing] = await pool.execute('SELECT id, name, role, status FROM users WHERE id = ?', [req.params.id]);
+    const [existing] = await pool.execute('SELECT id, name, role, status FROM users WHERE id = ?', [userId]);
 
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -344,13 +347,13 @@ export const reactivateUser = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'User is already active' });
     }
 
-    await pool.execute('UPDATE users SET status = ? WHERE id = ?', ['active', req.params.id]);
+    await pool.execute('UPDATE users SET status = ? WHERE id = ?', ['active', userId]);
 
     await logActivity(
       req.user.id,
       'reactivate_user',
       'user',
-      req.params.id,
+      userId,
       { status: existing[0].status },
       { status: 'active' },
       req.ip,
@@ -367,11 +370,12 @@ export const reactivateUser = async (req, res, next) => {
 
 export const deleteUser = async (req, res, next) => {
   try {
-    if (parseInt(req.user.id) === parseInt(req.params.id)) {
+    const userId = Number(req.params.id);
+    if (parseInt(req.user.id) === userId) {
       return res.status(400).json({ success: false, message: 'You cannot delete your own account' });
     }
 
-    const [existing] = await pool.execute('SELECT id, name, role, status FROM users WHERE id = ?', [req.params.id]);
+    const [existing] = await pool.execute('SELECT id, name, role, status FROM users WHERE id = ?', [userId]);
 
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -381,22 +385,22 @@ export const deleteUser = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Super Admin cannot be deleted' });
     }
 
-    await pool.execute('UPDATE tasks SET assigned_to = NULL WHERE assigned_to = ?', [req.params.id]);
-    await pool.execute('DELETE FROM project_members WHERE user_id = ?', [req.params.id]);
-    await pool.execute('DELETE FROM roles_permissions WHERE user_id = ?', [req.params.id]);
-    await pool.execute('DELETE FROM notification_preferences WHERE user_id = ?', [req.params.id]);
+    await pool.execute('UPDATE tasks SET assigned_to = NULL WHERE assigned_to = ?', [userId]);
+    await pool.execute('DELETE FROM project_members WHERE user_id = ?', [userId]);
+    await pool.execute('DELETE FROM roles_permissions WHERE user_id = ?', [userId]);
+    await pool.execute('DELETE FROM notification_preferences WHERE user_id = ?', [userId]);
 
     await logActivity(
       req.user.id,
       'user_deleted',
       'user',
-      req.params.id,
+      userId,
       { name: existing[0].name, role: existing[0].role },
       null,
       req.ip,
     );
 
-    await pool.execute('DELETE FROM users WHERE id = ?', [req.params.id]);
+    await pool.execute('DELETE FROM users WHERE id = ?', [userId]);
 
     return res.status(200).json({
       success: true,
@@ -496,7 +500,7 @@ export const getUserPermissions = async (req, res, next) => {
   try {
     const [rows] = await pool.execute(
       'SELECT id, user_id, module_name, can_view, can_create, can_edit, can_delete FROM roles_permissions WHERE user_id = ?',
-      [req.params.id],
+      [Number(req.params.id)],
     );
     return res.status(200).json({ success: true, data: mapPermissions(rows) });
   } catch (err) {

@@ -184,7 +184,7 @@ export const getMemberDashboard = async (req, res, next) => {
 
 export const getProjectDashboard = async (req, res, next) => {
   try {
-    const projectId = req.params.id;
+    const projectId = Number(req.params.id);
 
     const [projectRows] = await pool.execute('SELECT * FROM projects WHERE id = ?', [projectId]);
     if (projectRows.length === 0) {

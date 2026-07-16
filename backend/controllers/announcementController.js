@@ -24,7 +24,7 @@ const ensureTable = async () => {
 const logActivity = async (userId, action, entityType, entityId, oldValue, newValue, ipAddress) => {
   await pool.execute(
     'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [userId, action, entityType, entityId, oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
+    [Number(userId), action, entityType, Number(entityId), oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
   );
 };
 
@@ -158,7 +158,8 @@ export const getAllAnnouncements = async (req, res, next) => {
 export const pinAnnouncement = async (req, res, next) => {
   try {
     await ensureTable();
-    const [existing] = await pool.execute('SELECT id, is_pinned FROM announcements WHERE id = ?', [req.params.id]);
+    const announcementId = Number(req.params.id);
+    const [existing] = await pool.execute('SELECT id, is_pinned FROM announcements WHERE id = ?', [announcementId]);
 
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Announcement not found' });
@@ -166,13 +167,13 @@ export const pinAnnouncement = async (req, res, next) => {
 
     const newPinned = !existing[0].is_pinned;
 
-    await pool.execute('UPDATE announcements SET is_pinned = ? WHERE id = ?', [newPinned, req.params.id]);
+    await pool.execute('UPDATE announcements SET is_pinned = ? WHERE id = ?', [newPinned, announcementId]);
 
     await logActivity(
       req.user.id,
       newPinned ? 'pin_announcement' : 'unpin_announcement',
       'announcement',
-      req.params.id,
+      announcementId,
       { is_pinned: existing[0].is_pinned },
       { is_pinned: newPinned },
       req.ip,
@@ -183,7 +184,7 @@ export const pinAnnouncement = async (req, res, next) => {
        FROM announcements a
        LEFT JOIN users u ON u.id = a.created_by
        WHERE a.id = ?`,
-      [req.params.id],
+      [announcementId],
     );
 
     return res.status(200).json({ success: true, data: updated[0] });
@@ -195,19 +196,20 @@ export const pinAnnouncement = async (req, res, next) => {
 export const deleteAnnouncement = async (req, res, next) => {
   try {
     await ensureTable();
-    const [existing] = await pool.execute('SELECT id, title FROM announcements WHERE id = ?', [req.params.id]);
+    const announcementId = Number(req.params.id);
+    const [existing] = await pool.execute('SELECT id, title FROM announcements WHERE id = ?', [announcementId]);
 
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Announcement not found' });
     }
 
-    await pool.execute('DELETE FROM announcements WHERE id = ?', [req.params.id]);
+    await pool.execute('DELETE FROM announcements WHERE id = ?', [announcementId]);
 
     await logActivity(
       req.user.id,
       'delete_announcement',
       'announcement',
-      req.params.id,
+      announcementId,
       { title: existing[0].title },
       null,
       req.ip,

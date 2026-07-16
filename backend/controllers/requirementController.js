@@ -3,13 +3,14 @@ import pool from '../config/db.js';
 const logActivity = async (userId, action, entityType, entityId, oldValue, newValue, ipAddress) => {
   await pool.execute(
     'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [userId, action, entityType, entityId, oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
+    [Number(userId), action, entityType, Number(entityId), oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
   );
 };
 
 export const createRequirement = async (req, res, next) => {
   try {
-    const { project_id, title, description, type } = req.body;
+    const project_id = Number(req.body.project_id);
+    const { title, description, type } = req.body;
 
     if (!project_id || !title) {
       return res.status(400).json({ success: false, message: 'project_id and title are required' });
@@ -27,10 +28,10 @@ export const createRequirement = async (req, res, next) => {
 
     const [result] = await pool.execute(
       'INSERT INTO requirements (project_id, title, description, type, created_by) VALUES (?, ?, ?, ?, ?)',
-      [project_id, title, description || null, type || 'functional', req.user.id],
+      [project_id, title, description || null, type || 'functional', Number(req.user.id)],
     );
 
-    const [requirement] = await pool.execute('SELECT * FROM requirements WHERE id = ?', [result.insertId]);
+    const [requirement] = await pool.execute('SELECT * FROM requirements WHERE id = ?', [Number(result.insertId)]);
 
     return res.status(201).json({ success: true, message: 'Requirement created', data: requirement[0] });
   } catch (err) {
@@ -46,7 +47,7 @@ export const getRequirementsByProject = async (req, res, next) => {
        LEFT JOIN users u ON u.id = r.created_by
        WHERE r.project_id = ?
        ORDER BY r.created_at ASC`,
-      [req.params.project_id],
+      [Number(req.params.project_id)],
     );
 
     const grouped = { functional: [], technical: [], client_note: [] };
@@ -64,7 +65,8 @@ export const getRequirementsByProject = async (req, res, next) => {
 
 export const updateRequirement = async (req, res, next) => {
   try {
-    const [existing] = await pool.execute('SELECT * FROM requirements WHERE id = ?', [req.params.id]);
+    const requirementId = Number(req.params.id);
+    const [existing] = await pool.execute('SELECT * FROM requirements WHERE id = ?', [requirementId]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Requirement not found' });
     }
@@ -99,7 +101,7 @@ export const updateRequirement = async (req, res, next) => {
     const setClauses = Object.keys(updates).map(key => `${key} = ?`).join(', ');
     const updateValues = Object.values(updates);
 
-    await pool.execute(`UPDATE requirements SET ${setClauses} WHERE id = ?`, [...updateValues, req.params.id]);
+    await pool.execute(`UPDATE requirements SET ${setClauses} WHERE id = ?`, [...updateValues, requirementId]);
 
     const oldData = {};
     const newData = {};
@@ -108,9 +110,9 @@ export const updateRequirement = async (req, res, next) => {
       newData[change.field] = change.new;
     }
 
-    await logActivity(req.user.id, 'update_requirement', 'requirement', req.params.id, oldData, newData, req.ip);
+    await logActivity(req.user.id, 'update_requirement', 'requirement', requirementId, oldData, newData, req.ip);
 
-    const [updated] = await pool.execute('SELECT * FROM requirements WHERE id = ?', [req.params.id]);
+    const [updated] = await pool.execute('SELECT * FROM requirements WHERE id = ?', [requirementId]);
 
     return res.status(200).json({ success: true, message: 'Requirement updated', data: updated[0] });
   } catch (err) {
@@ -120,12 +122,13 @@ export const updateRequirement = async (req, res, next) => {
 
 export const deleteRequirement = async (req, res, next) => {
   try {
-    const [existing] = await pool.execute('SELECT id, title FROM requirements WHERE id = ?', [req.params.id]);
+    const requirementId = Number(req.params.id);
+    const [existing] = await pool.execute('SELECT id, title FROM requirements WHERE id = ?', [requirementId]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Requirement not found' });
     }
 
-    await pool.execute('DELETE FROM requirements WHERE id = ?', [req.params.id]);
+    await pool.execute('DELETE FROM requirements WHERE id = ?', [requirementId]);
 
     return res.status(200).json({ success: true, message: 'Requirement deleted' });
   } catch (err) {

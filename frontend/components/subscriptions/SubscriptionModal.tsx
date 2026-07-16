@@ -121,7 +121,7 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, prese
     const checked = target instanceof HTMLInputElement ? target.checked : undefined;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : (type === 'number' ? (value === '' ? '' : Number(value)) : value)
     }));
   };
 

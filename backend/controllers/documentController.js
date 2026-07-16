@@ -10,7 +10,7 @@ const uploadDir = path.resolve(__dirname, '..', 'uploads');
 const logActivity = async (userId, action, entityType, entityId, oldValue, newValue, ipAddress) => {
   await pool.execute(
     'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [userId, action, entityType, entityId, oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
+    [Number(userId), action, entityType, Number(entityId), oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
   );
 };
 
@@ -111,9 +111,10 @@ export const getAllDocuments = async (req, res, next) => {
 
 export const deleteDocument = async (req, res, next) => {
   try {
+    const docId = Number(req.params.id);
     const [existing] = await pool.execute(
       'SELECT * FROM documents WHERE id = ?',
-      [req.params.id],
+      [docId],
     );
 
     if (existing.length === 0) {
@@ -133,14 +134,14 @@ export const deleteDocument = async (req, res, next) => {
       fs.unlinkSync(filePath);
     }
 
-    await pool.execute('DELETE FROM documents WHERE id = ?', [req.params.id]);
+    await pool.execute('DELETE FROM documents WHERE id = ?', [docId]);
 
     try {
       await logActivity(
         req.user.id,
         'delete_document',
         'document',
-        req.params.id,
+        docId,
         { title: doc.title, file_name: doc.file_name },
         null,
         req.ip,
@@ -157,9 +158,10 @@ export const deleteDocument = async (req, res, next) => {
 
 export const downloadDocument = async (req, res, next) => {
   try {
+    const docId = Number(req.params.id);
     const [existing] = await pool.execute(
       'SELECT * FROM documents WHERE id = ?',
-      [req.params.id],
+      [docId],
     );
 
     if (existing.length === 0) {

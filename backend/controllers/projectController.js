@@ -3,7 +3,7 @@ import pool from '../config/db.js';
 const logActivity = async (userId, action, entityType, entityId, oldValue, newValue, ipAddress) => {
   await pool.execute(
     'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, old_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [userId, action, entityType, entityId, oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
+    [Number(userId), action, entityType, Number(entityId), oldValue ? JSON.stringify(oldValue) : null, newValue ? JSON.stringify(newValue) : null, ipAddress],
   );
 };
 
@@ -53,7 +53,7 @@ export const createProject = async (req, res) => {
 
     console.log('Project created:', result.insertId);
 
-    const projectId = result.insertId;
+    const projectId = Number(result.insertId);
 
     // Add members (safe)
     if (members && members.length > 0) {
@@ -62,13 +62,13 @@ export const createProject = async (req, res) => {
         try {
           await pool.execute(
             'INSERT INTO project_members (project_id, user_id, project_role) VALUES (?, ?, ?)',
-            [projectId, m.user_id, m.project_role || 'Member'],
+            [projectId, Number(m.user_id), m.project_role || 'Member'],
           );
         } catch (memberErr) {
           console.log('Member insert with project_role failed, trying without:', memberErr.message);
           await pool.execute(
             'INSERT INTO project_members (project_id, user_id) VALUES (?, ?)',
-            [projectId, m.user_id],
+            [projectId, Number(m.user_id)],
           );
         }
       }
@@ -89,7 +89,7 @@ export const createProject = async (req, res) => {
       for (const subId of existing_subscription_ids) {
         await pool.execute(
           `INSERT IGNORE INTO subscription_projects (subscription_id, project_id) VALUES (?, ?)`,
-          [subId, projectId]
+          [Number(subId), projectId]
         );
       }
     }
@@ -104,18 +104,18 @@ export const createProject = async (req, res) => {
             sub.name, sub.category,
             sub.provider || null,
             sub.start_date, sub.expiry_date,
-            sub.cost || 0, 
+            Number(sub.cost) || 0, 
             sub.currency || 'USD',
             sub.billing_cycle || 'monthly',
-            sub.alert_days_before || 7,
+            Number(sub.alert_days_before) || 7,
             sub.auto_renew ? 1 : 0,
-            req.user.id
+            Number(req.user.id)
           ]
         );
 
         await pool.execute(
           `INSERT INTO subscription_projects (subscription_id, project_id) VALUES (?, ?)`,
-          [subResult.insertId, projectId]
+          [Number(subResult.insertId), projectId]
         );
       }
     }
@@ -179,12 +179,14 @@ export const getAllProjects = async (req, res, next) => {
 
 export const getProjectById = async (req, res, next) => {
   try {
+    const projectId = Number(req.params.id);
+
     const [projectRows] = await pool.execute(`
       SELECT p.*, u.name as created_by_name
       FROM projects p
       LEFT JOIN users u ON p.created_by = u.id
       WHERE p.id = ? AND p.deleted_at IS NULL
-    `, [req.params.id]);
+    `, [projectId]);
 
     if (projectRows.length === 0) {
       return res.status(404).json({ success: false, message: 'Project not found' });
@@ -204,7 +206,7 @@ export const getProjectById = async (req, res, next) => {
         FROM project_members pm
         JOIN users u ON pm.user_id = u.id
         WHERE pm.project_id = ?
-      `, [req.params.id]);
+      `, [projectId]);
       members = m;
     } catch (roleErr) {
       const [m] = await pool.execute(`
@@ -216,7 +218,7 @@ export const getProjectById = async (req, res, next) => {
         FROM project_members pm
         JOIN users u ON pm.user_id = u.id
         WHERE pm.project_id = ?
-      `, [req.params.id]);
+      `, [projectId]);
       members = m;
     }
 
@@ -225,7 +227,7 @@ export const getProjectById = async (req, res, next) => {
       SELECT * FROM milestones 
       WHERE project_id = ?
       ORDER BY due_date ASC
-    `, [req.params.id]);
+    `, [projectId]);
 
     // Get Requirements
     const [requirements] = await pool.execute(`
@@ -233,7 +235,7 @@ export const getProjectById = async (req, res, next) => {
       FROM requirements r
       LEFT JOIN users u ON r.created_by = u.id
       WHERE r.project_id = ?
-    `, [req.params.id]);
+    `, [projectId]);
 
     // Get Tasks
     const [tasks] = await pool.execute(`
@@ -242,7 +244,7 @@ export const getProjectById = async (req, res, next) => {
       LEFT JOIN users u ON t.assigned_to = u.id
       WHERE t.project_id = ?
       ORDER BY t.created_at DESC
-    `, [req.params.id]);
+    `, [projectId]);
 
     return res.json({
       success: true,
@@ -261,7 +263,8 @@ export const getProjectById = async (req, res, next) => {
 
 export const updateProject = async (req, res, next) => {
   try {
-    const [existing] = await pool.execute('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+    const projectId = Number(req.params.id);
+    const [existing] = await pool.execute('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
@@ -285,7 +288,7 @@ export const updateProject = async (req, res, next) => {
     const setClauses = Object.keys(updates).map(key => `${key} = ?`).join(', ');
     const updateValues = Object.values(updates);
 
-    await pool.execute(`UPDATE projects SET ${setClauses} WHERE id = ?`, [...updateValues, req.params.id]);
+    await pool.execute(`UPDATE projects SET ${setClauses} WHERE id = ?`, [...updateValues, projectId]);
 
     const oldData = {};
     const newData = {};
@@ -294,9 +297,9 @@ export const updateProject = async (req, res, next) => {
       newData[change.field] = change.new;
     }
 
-    await logActivity(req.user.id, 'update_project', 'project', req.params.id, oldData, newData, req.ip);
+    await logActivity(req.user.id, 'update_project', 'project', projectId, oldData, newData, req.ip);
 
-    const [updated] = await pool.execute('SELECT * FROM projects WHERE id = ?', [req.params.id]);
+    const [updated] = await pool.execute('SELECT * FROM projects WHERE id = ?', [projectId]);
 
     return res.status(200).json({ success: true, message: 'Project updated', data: updated[0] });
   } catch (err) {
@@ -306,14 +309,15 @@ export const updateProject = async (req, res, next) => {
 
 export const deleteProject = async (req, res, next) => {
   try {
-    const [existing] = await pool.execute('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+    const projectId = Number(req.params.id);
+    const [existing] = await pool.execute('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
 
-    await pool.execute('UPDATE projects SET deleted_at = NOW(), deleted_by = ? WHERE id = ?', [req.user.id, req.params.id]);
+    await pool.execute('UPDATE projects SET deleted_at = NOW(), deleted_by = ? WHERE id = ?', [Number(req.user.id), projectId]);
 
-    await logActivity(req.user.id, 'delete_project_soft', 'project', req.params.id, { name: existing[0].name }, null, req.ip);
+    await logActivity(req.user.id, 'delete_project_soft', 'project', projectId, { name: existing[0].name }, null, req.ip);
 
     return res.status(200).json({ success: true, message: 'Project moved to recycle bin' });
   } catch (err) {
@@ -327,8 +331,9 @@ export const addMember = async (req, res) => {
     console.log('Params:', req.params);
     console.log('Body:', req.body);
 
-    const project_id = req.params.id;
-    const { user_id, project_role } = req.body;
+    const project_id = Number(req.params.id);
+    const user_id = Number(req.body.user_id);
+    const { project_role } = req.body;
 
     if (!user_id) {
       return res.status(400).json({
@@ -413,10 +418,12 @@ export const addMember = async (req, res) => {
 export const updateMemberRole = async (req, res, next) => {
   try {
     const { project_role } = req.body;
+    const projectId = Number(req.params.id);
+    const userId = Number(req.params.userId);
 
     const [existing] = await pool.execute(
       'SELECT pm.id, pm.project_role FROM project_members pm WHERE pm.project_id = ? AND pm.user_id = ?',
-      [req.params.id, req.params.userId],
+      [projectId, userId],
     );
 
     if (existing.length === 0) {
@@ -425,10 +432,10 @@ export const updateMemberRole = async (req, res, next) => {
 
     await pool.execute(
       'UPDATE project_members SET project_role = ? WHERE project_id = ? AND user_id = ?',
-      [project_role || null, req.params.id, req.params.userId],
+      [project_role || null, projectId, userId],
     );
 
-    await logActivity(req.user.id, 'update_member_role', 'project', req.params.id, { project_role: existing[0].project_role }, { project_role }, req.ip);
+    await logActivity(req.user.id, 'update_member_role', 'project', projectId, { project_role: existing[0].project_role }, { project_role }, req.ip);
 
     return res.status(200).json({ success: true, message: 'Member role updated' });
   } catch (err) {
@@ -438,11 +445,12 @@ export const updateMemberRole = async (req, res, next) => {
 
 export const removeMember = async (req, res, next) => {
   try {
-    const { userId } = req.params;
+    const projectId = Number(req.params.id);
+    const userId = Number(req.params.userId);
 
     const [existing] = await pool.execute(
       'SELECT id FROM project_members WHERE project_id = ? AND user_id = ?',
-      [req.params.id, userId],
+      [projectId, userId],
     );
 
     if (existing.length === 0) {
@@ -451,15 +459,15 @@ export const removeMember = async (req, res, next) => {
 
     await pool.execute(
       'DELETE FROM project_members WHERE project_id = ? AND user_id = ?',
-      [req.params.id, userId],
+      [projectId, userId],
     );
 
     await pool.execute(
       'UPDATE tasks SET assigned_to = NULL WHERE project_id = ? AND assigned_to = ?',
-      [req.params.id, userId],
+      [projectId, userId],
     );
 
-    await logActivity(req.user.id, 'remove_member', 'project', req.params.id, { user_id: userId }, null, req.ip);
+    await logActivity(req.user.id, 'remove_member', 'project', projectId, { user_id: userId }, null, req.ip);
 
     return res.status(200).json({ success: true, message: 'Member removed from project' });
   } catch (err) {
@@ -485,14 +493,15 @@ export const getRecycleBin = async (req, res, next) => {
 
 export const restoreProject = async (req, res, next) => {
   try {
-    const [existing] = await pool.execute('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NOT NULL', [req.params.id]);
+    const projectId = Number(req.params.id);
+    const [existing] = await pool.execute('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NOT NULL', [projectId]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Project not found in recycle bin' });
     }
 
-    await pool.execute('UPDATE projects SET deleted_at = NULL, deleted_by = NULL WHERE id = ?', [req.params.id]);
+    await pool.execute('UPDATE projects SET deleted_at = NULL, deleted_by = NULL WHERE id = ?', [projectId]);
 
-    await logActivity(req.user.id, 'restore_project', 'project', req.params.id, null, { name: existing[0].name }, req.ip);
+    await logActivity(req.user.id, 'restore_project', 'project', projectId, null, { name: existing[0].name }, req.ip);
 
     return res.status(200).json({ success: true, message: 'Project restored successfully' });
   } catch (err) {
@@ -505,20 +514,21 @@ export const permanentDeleteProject = async (req, res, next) => {
   try {
     await connection.beginTransaction();
 
-    const [existing] = await connection.execute('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NOT NULL', [req.params.id]);
+    const projectId = Number(req.params.id);
+    const [existing] = await connection.execute('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NOT NULL', [projectId]);
     if (existing.length === 0) {
       await connection.rollback();
       return res.status(404).json({ success: false, message: 'Project not found in recycle bin' });
     }
 
-    await connection.execute('DELETE FROM requirements WHERE project_id = ?', [req.params.id]);
-    await connection.execute('DELETE FROM milestones WHERE project_id = ?', [req.params.id]);
-    await connection.execute('DELETE FROM tasks WHERE project_id = ?', [req.params.id]);
-    await connection.execute('DELETE FROM project_members WHERE project_id = ?', [req.params.id]);
+    await connection.execute('DELETE FROM requirements WHERE project_id = ?', [projectId]);
+    await connection.execute('DELETE FROM milestones WHERE project_id = ?', [projectId]);
+    await connection.execute('DELETE FROM tasks WHERE project_id = ?', [projectId]);
+    await connection.execute('DELETE FROM project_members WHERE project_id = ?', [projectId]);
     
-    await connection.execute('DELETE FROM projects WHERE id = ?', [req.params.id]);
+    await connection.execute('DELETE FROM projects WHERE id = ?', [projectId]);
 
-    await logActivity(req.user.id, 'delete_project_permanent', 'project', req.params.id, { name: existing[0].name }, null, req.ip);
+    await logActivity(req.user.id, 'delete_project_permanent', 'project', projectId, { name: existing[0].name }, null, req.ip);
 
     await connection.commit();
     return res.status(200).json({ success: true, message: 'Project permanently deleted' });
