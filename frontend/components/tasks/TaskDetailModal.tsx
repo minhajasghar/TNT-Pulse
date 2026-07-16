@@ -56,7 +56,8 @@ export default function TaskDetailModal({ task, onClose }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['project-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
     },
   });
 
