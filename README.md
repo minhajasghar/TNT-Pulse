@@ -77,7 +77,7 @@ TNT-Pulse/
 ├── database/
 │   ├── migrations/
 │   ├── schema.sql
-│   |__ seed.sql
+│   └── seed.sql
 │
 └── README.md
 ```
