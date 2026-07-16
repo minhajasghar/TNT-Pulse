@@ -241,7 +241,7 @@ pm2 monit
 
 ## Author
 
-**Minhaj Asghar**
+**[Minhaj Asghar](https://minhaj-asghar-portfolio.vercel.app)**
 
 GitHub: https://github.com/minhajasghar
 
