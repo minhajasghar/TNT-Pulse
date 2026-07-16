@@ -41,10 +41,11 @@ export const getProjectReport = async (req, res, next) => {
     const [projectsList] = await pool.execute(
       `SELECT p.*,
               (SELECT COUNT(*) FROM project_members WHERE project_id = p.id) AS team_size,
-              COALESCE(
+              CASE WHEN p.status = 'completed' THEN 100.0
+              ELSE COALESCE(
                 (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'done') * 100.0 /
                 NULLIF((SELECT COUNT(*) FROM tasks WHERE project_id = p.id), 0), 0
-              ) AS progress_percentage
+              ) END AS progress_percentage
        FROM projects p
        WHERE 1=1 AND p.deleted_at IS NULL ${dateFilter} ${projectFilter}
        ORDER BY p.created_at DESC`,

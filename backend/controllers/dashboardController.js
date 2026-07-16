@@ -146,8 +146,11 @@ export const getMemberDashboard = async (req, res, next) => {
         SELECT p.id, p.name, p.status, p.deadline, p.priority,
                DATEDIFF(p.deadline, CURDATE()) AS days_remaining,
                (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND assigned_to = ?) AS my_task_count,
-               (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'done') * 100.0 /
-               NULLIF((SELECT COUNT(*) FROM tasks WHERE project_id = p.id), 0) AS progress_percentage
+               CASE WHEN p.status = 'completed' THEN 100.0
+               ELSE COALESCE(
+                 (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'done') * 100.0 /
+                 NULLIF((SELECT COUNT(*) FROM tasks WHERE project_id = p.id), 0), 0
+               ) END AS progress_percentage
         FROM projects p
         JOIN project_members pm ON pm.project_id = p.id
         WHERE pm.user_id = ?
@@ -268,7 +271,7 @@ export const getProjectDashboard = async (req, res, next) => {
       : null;
 
     const expectedProgress = Math.min(100, (daysElapsed / totalDuration) * 100);
-    const actualProgress = totalTaskCount > 0 ? (completedTaskCount / totalTaskCount) * 100 : 0;
+    const actualProgress = project.status === 'completed' ? 100 : (totalTaskCount > 0 ? (completedTaskCount / totalTaskCount) * 100 : 0);
 
     const enrichedMembers = teamMembers[0].map(m => ({
       ...m,
