@@ -119,7 +119,7 @@ EMAIL_FROM=Your Name <noreply@example.com>
 Clone the repository.
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/minhajasghar/tnt-pulse
 cd TNT-Pulse
 ```
 
