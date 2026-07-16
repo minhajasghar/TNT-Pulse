@@ -66,7 +66,9 @@ export default function ProjectDetailsPage() {
   
   const totalTasks = project.tasks?.length || 0;
   const completedTasks = project.tasks?.filter((t: any) => t.status === 'done').length || 0;
-  const progress = project.status === 'completed' ? 100 : (totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0);
+  const taskProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const statusProgress: Record<string, number> = { planning: 0, in_progress: 50, review: 75, completed: 100 };
+  const progress = statusProgress[project.status] ?? taskProgress;
   
   const daysLeft = differenceInDays(new Date(project.deadline), new Date());
   const isOverdue = daysLeft < 0 && project.status !== 'completed';
