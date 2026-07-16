@@ -74,6 +74,12 @@ TNT-Pulse/
 │   ├── utils/
 │   └── server.js
 │
+├── database/
+│   ├── migrations/
+│   ├── schema.sql
+│   ├── seed.sql
+│   └── README.md (optional)
+│
 └── README.md
 ```
 
