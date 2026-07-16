@@ -8,7 +8,7 @@ import {
   ArrowLeft, Users, Calendar, Clock, 
   CheckCircle2, AlertCircle, PlayCircle, Loader2,
   FolderKanban, Trash2, Edit, Plus, FileText,
-  Upload, Download, X, Globe, Server, Plug, Shield, Key, Database, Mail, Package, Info
+  Upload, Download, X, Globe, Server, Plug, Shield, Key, Database, Mail, Package, Info, Circle
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
@@ -16,6 +16,7 @@ import { useToast } from '@/components/ui/Toast';
 import Badge from '@/components/ui/Badge';
 import RoleSelector from '@/components/ui/RoleSelector';
 import Link from 'next/link';
+import TaskDetailModal from '@/components/tasks/TaskDetailModal';
 
 const CATEGORY_ICONS = {
   domain: Globe,
@@ -211,6 +212,7 @@ function TasksTab({ project }: { project: any }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [showForm, setShowForm] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -224,6 +226,34 @@ function TasksTab({ project }: { project: any }) {
   const isMember = project.members?.some((m: any) => m.user_id === Number(currentUser?.id));
 
   const members = project.members || [];
+
+  const markDoneMutation = useMutation({
+    mutationFn: async (taskId: number) => {
+      await api.put(`/api/tasks/${taskId}`, { status: 'done' });
+    },
+    onMutate: async (taskId) => {
+      await queryClient.cancelQueries({ queryKey: ['project', String(project.id)] });
+      const previous = queryClient.getQueryData(['project', String(project.id)]);
+      queryClient.setQueryData(['project', String(project.id)], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          tasks: old.tasks?.map((t: any) => t.id === taskId ? { ...t, status: 'done' } : t)
+        };
+      });
+      return { previous };
+    },
+    onError: (_err, _taskId, context) => {
+      queryClient.setQueryData(['project', String(project.id)], context?.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', String(project.id)] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['member-dashboard'] });
+    },
+  });
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -378,8 +408,27 @@ function TasksTab({ project }: { project: any }) {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {project.tasks.map((task: any) => (
-                  <tr key={task.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-gray-900">{task.title}</td>
+                  <tr key={task.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelectedTask(task)}>
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (task.status !== 'done') {
+                              markDoneMutation.mutate(task.id);
+                            }
+                          }}
+                          className="shrink-0"
+                        >
+                          {task.status === 'done' ? (
+                            <CheckCircle2 size={18} className="text-green-500" />
+                          ) : (
+                            <Circle size={18} className="text-gray-300 hover:text-green-400" />
+                          )}
+                        </button>
+                        {task.title}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <Badge variant="status" value={task.status} />
                     </td>
@@ -394,6 +443,7 @@ function TasksTab({ project }: { project: any }) {
           </div>
         </div>
       )}
+      {selectedTask && <TaskDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} />}
     </div>
   );
 }
