@@ -1,106 +1,104 @@
 # TNT Pulse
 
-A modern Project & Task Management System developed for TNT Innovations.
+TNT Pulse is a modern project and task management platform developed for TNT Innovations. It provides project tracking, task management, team collaboration, document management, announcements, reporting, and role-based access control through a secure web application.
 
----
+## Live Demo
 
-## 🚀 Live Demo
-
-**Application:**  
+Application:
 https://pulse.tntinnov.com
 
-**Health Check API:**  
+API Health Check:
 https://pulse.tntinnov.com/api/health
 
 ---
 
-## ✨ Features
+## Features
 
-- Secure Authentication (JWT)
-- Dashboard
+- JWT Authentication
 - Project Management
 - Task Management
 - Team Management
 - Activity Tracking
 - Announcements
-- Documents
+- Document Management
 - Reports
-- Notifications & Alerts
+- Alert Management
 - Subscription Management
-- Role Based Access Control
+- Role-Based Access Control
 - REST API
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 ### Frontend
+
 - Next.js 16
 - React 19
 - TypeScript
+- Tailwind CSS
 - Zustand
 - React Query
 - React Hook Form
-- Tailwind CSS
 
 ### Backend
+
 - Node.js
 - Express.js
-- JWT Authentication
 - MySQL
+- JWT Authentication
 
-### Production Server
+### Production
+
 - Ubuntu VPS
 - Apache2 Reverse Proxy
-- PM2 Process Manager
+- PM2
 - Let's Encrypt SSL
-- Contabo VPS
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-TNT-Pulse
-│
+TNT-Pulse/
 ├── frontend/
 │   ├── app/
 │   ├── components/
-│   ├── public/
-│   └── ...
+│   ├── lib/
+│   └── public/
 │
 ├── backend/
-│   ├── routes/
-│   ├── middleware/
 │   ├── config/
+│   ├── middleware/
+│   ├── routes/
 │   ├── utils/
-│   └── ...
+│   └── server.js
 │
 └── README.md
 ```
 
 ---
 
-## ⚙️ Environment Variables
+## Environment Variables
 
-### Frontend (.env.local)
+### Frontend
 
 ```env
 NEXT_PUBLIC_API_URL=https://pulse.tntinnov.com
 ```
 
-### Backend (.env)
+### Backend
 
 ```env
 PORT=5000
 
 DB_HOST=localhost
 DB_PORT=3306
-DB_USER=your_db_user
-DB_PASS=your_db_password
-DB_NAME=your_database
+DB_USER=your_database_user
+DB_PASS=your_database_password
+DB_NAME=your_database_name
 
-JWT_SECRET=your_secret_key
+JWT_SECRET=your_jwt_secret
 
 FRONTEND_URL=https://pulse.tntinnov.com
 
@@ -111,111 +109,95 @@ EMAIL_FROM=Your Name <noreply@example.com>
 
 ---
 
-## 💻 Local Development
+## Installation
 
-### Clone Repository
+Clone the repository.
 
 ```bash
 git clone <repository-url>
 cd TNT-Pulse
 ```
 
-### Install Dependencies
-
-Frontend
+Install frontend dependencies.
 
 ```bash
 cd frontend
 npm install
 ```
 
-Backend
+Install backend dependencies.
 
 ```bash
-cd backend
+cd ../backend
 npm install
 ```
 
 ---
 
-## ▶️ Run Locally
+## Running Locally
 
-Backend
+Start the backend.
 
 ```bash
 npm start
 ```
 
-Frontend
+Start the frontend.
 
 ```bash
+cd ../frontend
 npm run dev
 ```
 
 ---
 
-## 🚀 Production Deployment
+## Production Deployment
 
-### Build Frontend
+Build the frontend.
 
 ```bash
-cd frontend
-
-npm install
 npm run build
 ```
 
-### Start Frontend
+Start services with PM2.
 
 ```bash
 pm2 start "npm start" --name tnt-frontend
-```
-
-### Start Backend
-
-```bash
-cd backend
-
 pm2 start server.js --name tnt-backend
 ```
 
-### Save PM2 Processes
+Save PM2 configuration.
 
 ```bash
 pm2 save
-```
-
-### Enable Auto Start
-
-```bash
 pm2 startup
 ```
 
 ---
 
-## 🌐 Server Architecture
+## Architecture
 
 ```
-Internet
-      │
-      ▼
+Client
+   │
+   ▼
 Apache2
-      │
-      ▼
+   │
+   ▼
 Next.js (Port 3000)
-      │
-      ▼
+   │
+   ▼
 Express API (Port 5000)
-      │
-      ▼
-MySQL Database
+   │
+   ▼
+MySQL
 ```
 
 ---
 
-## 🔒 Security
+## Security
 
-- HTTPS (Let's Encrypt SSL)
+- HTTPS with Let's Encrypt
 - Apache Reverse Proxy
 - JWT Authentication
 - Environment Variables
@@ -223,20 +205,20 @@ MySQL Database
 
 ---
 
-## 📦 Deployment Information
+## Deployment
 
-- Hosting: Contabo VPS
-- Operating System: Ubuntu
-- Web Server: Apache2
-- Process Manager: PM2
-- SSL: Let's Encrypt
-- Database: MySQL
+| Component | Technology |
+|----------|------------|
+| Hosting | Contabo VPS |
+| Operating System | Ubuntu |
+| Web Server | Apache2 |
+| Process Manager | PM2 |
+| SSL | Let's Encrypt |
+| Database | MySQL |
 
 ---
 
-## 📊 Monitoring
-
-Useful PM2 Commands
+## Useful Commands
 
 ```bash
 pm2 status
@@ -252,13 +234,7 @@ pm2 monit
 
 ---
 
-## 🤝 Developed For
-
-**TNT Innovations**
-
----
-
-## 👨‍💻 Developer
+## Author
 
 **Minhaj Asghar**
 
@@ -266,7 +242,8 @@ GitHub: https://github.com/minhajasghar
 
 ---
 
-## 📄 License
+## License
 
 This project is proprietary software developed for TNT Innovations.
+
 All rights reserved.
