@@ -96,8 +96,8 @@ export default function ProjectDetailsPage() {
           <ArrowLeft size={20} className="text-gray-500" />
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{project.name}</h1>
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColors[project.status] || statusColors.planning}`}>
               {project.status.replace('_', ' ').toUpperCase()}
             </span>
@@ -162,8 +162,8 @@ export default function ProjectDetailsPage() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 px-4">
-        <div className="flex gap-6 max-w-7xl mx-auto">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 px-4 overflow-x-auto">
+        <div className="flex gap-4 sm:gap-6 max-w-7xl mx-auto min-w-max">
           {[
             { id: 'tasks', label: 'Tasks', count: totalTasks },
             { id: 'team', label: 'Team', count: project.members?.length || 0 },
@@ -623,7 +623,7 @@ function MilestonesTab({ project, isAdmin }: { project: any, isAdmin: boolean })
       <ul className="divide-y divide-gray-100">
         {project.milestones.map((ms: any) => (
           <li key={ms.id} className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
-            <div className="flex items-start gap-4">
+      <div className="flex flex-wrap items-start gap-2 sm:gap-4">
               <div className={`mt-1 w-3 h-3 rounded-full ${ms.status === 'completed' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
               <div>
                 <h4 className="font-semibold text-gray-900">{ms.title}</h4>

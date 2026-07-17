@@ -392,11 +392,11 @@ export default function SubscriptionsPage() {
   // Render view mode
   if (mode === 'view') {
     return (
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Subscriptions</h1>
-            <p className="text-gray-500">Track domains, hosting, APIs, and other recurring services</p>
+            <p className="text-gray-500 text-sm">Track domains, hosting, APIs, and other recurring services</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex bg-gray-100 rounded-lg p-1">
@@ -426,7 +426,7 @@ export default function SubscriptionsPage() {
         </div>
 
         {isAdminOrManager && statsData && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div className={`p-4 rounded-xl border ${statsData.expiring_this_week > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'}`}>
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-gray-500">Expiring This Week</h3>
@@ -466,7 +466,7 @@ export default function SubscriptionsPage() {
           </div>
         )}
 
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <div className="flex-1 relative">
             <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input 
@@ -525,11 +525,11 @@ export default function SubscriptionsPage() {
               <table className="w-full text-left">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-sm font-medium text-gray-500">Subscription</th>
-                    <th className="px-6 py-4 text-sm font-medium text-gray-500">Cost</th>
-                    <th className="px-6 py-4 text-sm font-medium text-gray-500">Status</th>
-                    <th className="px-6 py-4 text-sm font-medium text-gray-500">Linked Projects</th>
-                    {isAdminOrManager && <th className="px-6 py-4 text-right text-sm font-medium text-gray-500">Actions</th>}
+                      <th className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-500">Subscription</th>
+                      <th className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-500">Cost</th>
+                      <th className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-500">Status</th>
+                      <th className="hidden md:table-cell px-4 sm:px-6 py-4 text-sm font-medium text-gray-500">Linked Projects</th>
+                      {isAdminOrManager && <th className="px-4 sm:px-6 py-4 text-right text-sm font-medium text-gray-500">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -553,9 +553,9 @@ export default function SubscriptionsPage() {
 
                     return (
                       <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
+                        <td className="px-4 sm:px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gray-100 rounded-lg">
+                            <div className="p-2 bg-gray-100 rounded-lg hidden sm:block">
                               <Icon size={20} className="text-gray-600" />
                             </div>
                             <div>
@@ -567,11 +567,11 @@ export default function SubscriptionsPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
+                        <td className="px-4 sm:px-6 py-4 text-sm text-gray-900">
                           {sub.currency === 'USD' ? '$' : sub.currency} {Number(sub.cost).toFixed(2)}
                           <span className="text-gray-500 block text-xs capitalize">/{sub.billing_cycle.replace('_', ' ')}</span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="hidden md:table-cell px-4 sm:px-6 py-4">
                           <div className="flex flex-col items-start gap-1">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>
                               {badgeText}
@@ -581,7 +581,7 @@ export default function SubscriptionsPage() {
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="hidden md:table-cell px-4 sm:px-6 py-4">
                           <div className="flex flex-wrap gap-1">
                             {sub.linked_projects?.slice(0, 3).map((p: any) => (
                               <span key={p.id} className="inline-flex items-center px-2 py-1 rounded bg-indigo-50 text-indigo-700 text-xs border border-indigo-100">
@@ -599,7 +599,7 @@ export default function SubscriptionsPage() {
                           </div>
                         </td>
                         {(canEdit || canDelete) && (
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-4 sm:px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
                               {canEdit && (
                                 <button 
@@ -647,7 +647,7 @@ export default function SubscriptionsPage() {
                       </div>
                     </div>
                     <div className="divide-y divide-gray-100">
-                      {group.subscriptions.map((sub: any) => {
+                          {group.subscriptions.map((sub: any) => {
                         const Icon = CATEGORY_ICONS[sub.category as keyof typeof CATEGORY_ICONS] || Package;
                         let badgeClass = 'bg-green-100 text-green-800';
                         let badgeText = `${sub.days_remaining} days left`;
@@ -666,7 +666,7 @@ export default function SubscriptionsPage() {
                         }
 
                         return (
-                          <div key={sub.id} className="p-4 hover:bg-gray-50 flex items-center justify-between">
+                          <div key={sub.id} className="p-4 hover:bg-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-center gap-4">
                               <div className="p-2 bg-gray-100 rounded-lg">
                                 <Icon size={20} className="text-gray-600" />
@@ -726,7 +726,7 @@ export default function SubscriptionsPage() {
                       </div>
                     </div>
                     <div className="divide-y divide-gray-100">
-                      {byProjectData.unlinked.map((sub: any) => {
+                          {byProjectData.unlinked.map((sub: any) => {
                         const Icon = CATEGORY_ICONS[sub.category as keyof typeof CATEGORY_ICONS] || Package;
                         let badgeClass = 'bg-green-100 text-green-800';
                         let badgeText = `${sub.days_remaining} days left`;
@@ -745,7 +745,7 @@ export default function SubscriptionsPage() {
                         }
 
                         return (
-                          <div key={sub.id} className="p-4 hover:bg-gray-50 flex items-center justify-between">
+                          <div key={sub.id} className="p-4 hover:bg-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-center gap-4">
                               <div className="p-2 bg-gray-100 rounded-lg">
                                 <Icon size={20} className="text-gray-600" />
@@ -1031,7 +1031,7 @@ export default function SubscriptionsPage() {
                         </div>
 
                         <div className="space-y-4">
-                          <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-end">
+                          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Cost</label>
                               <input 
@@ -1071,7 +1071,7 @@ export default function SubscriptionsPage() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Alert Days Before</label>
                               <input 
@@ -1134,7 +1134,7 @@ export default function SubscriptionsPage() {
       </div>
 
       {/* SUMMARY BAR */}
-      <div className={`fixed bottom-0 ${sidebarOffset} right-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between shadow-lg z-40 transition-all duration-300`}>
+      <div className={`fixed bottom-0 ${sidebarOffset} right-0 left-0 sm:left-auto bg-white border-t border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between shadow-lg z-40 transition-all duration-300`}>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-500">
             {services.length} service(s) ready to save

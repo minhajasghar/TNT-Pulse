@@ -137,7 +137,7 @@ export default function TeamPage() {
                 <span>{u.last_seen ? `${formatDistanceToNow(new Date(u.last_seen), { addSuffix: true })}` : 'Never'}</span>
               </div>
               {(canEdit || canDelete || isSuperAdmin) && u.role !== 'super_admin' && (
-                <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
+                <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-gray-100">
                   <button
                     onClick={() => setViewUser(u)}
                     className="flex items-center justify-center gap-1 flex-1 px-2 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg"
@@ -790,7 +790,7 @@ function PermissionsModal({ user: targetUser, onClose }: { user: UserData; onClo
             return (
               <div key={mod} className="border border-gray-100 rounded-lg p-4">
                 <p className="text-sm font-semibold text-gray-700 capitalize mb-3">{mod}</p>
-                <div className="flex items-center gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {(['view', 'create', 'edit', 'delete'] as const).map((action) => (
                     <label key={action} className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
                       <input

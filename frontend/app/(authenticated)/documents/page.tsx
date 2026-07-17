@@ -110,7 +110,7 @@ export default function DocumentsPage() {
         )}
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -300,7 +300,7 @@ function UploadModal({ onClose, projects }: { onClose: () => void; projects: Pro
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onClick={() => inputRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+            className={`border-2 border-dashed rounded-xl p-4 sm:p-8 text-center cursor-pointer transition-colors ${
               dragOver ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
             }`}
           >

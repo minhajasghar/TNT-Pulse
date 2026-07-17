@@ -221,7 +221,7 @@ export default function SettingsPage() {
           )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 value={newEmail}
                 onChange={(e) => { setNewEmail(e.target.value); setEmailError(''); }}
@@ -373,7 +373,7 @@ export default function SettingsPage() {
           ) : (
             <div className="space-y-3">
               {rulesData.map((rule: any) => (
-                <div key={rule.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <div key={rule.id} className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900">{rule.rule_name}</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">

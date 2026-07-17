@@ -59,8 +59,8 @@ export default function ReportsPage() {
   const params = `from=${dateFrom}&to=${dateTo}`;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className="space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <BarChart3 size={24} className="text-indigo-600" />
           <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
@@ -68,7 +68,7 @@ export default function ReportsPage() {
         <DateRangePicker from={dateFrom} to={dateTo} ranges={ranges} onChange={(f, t) => { setDateFrom(f); setDateTo(t) }} />
       </div>
 
-      <div className="flex items-center gap-1 border-b border-gray-200">
+      <div className="flex items-center gap-1 border-b border-gray-200 overflow-x-auto">
         {(['project', 'team', 'task'] as Tab[]).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${

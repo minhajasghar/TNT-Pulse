@@ -74,7 +74,7 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Megaphone size={24} className="text-indigo-600" />
           <h1 className="text-2xl font-bold text-gray-900">Announcements</h1>

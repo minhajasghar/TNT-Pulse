@@ -122,7 +122,7 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
-      <div className="flex items-center justify-between h-16 px-4 lg:px-6 gap-4">
+        <div className="flex items-center justify-between h-16 px-4 pl-14 lg:pl-4 lg:px-6 gap-4">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold text-gray-900">{pageTitle}</h1>
           <span className="text-sm text-gray-400 hidden sm:block">{dateStr}</span>
@@ -192,7 +192,7 @@ export default function Navbar() {
             </button>
 
             {showAlerts && (
-              <div className="absolute top-full mt-1 right-0 w-80 bg-white border border-gray-200 rounded-lg shadow-lg">
+              <div className="absolute top-full mt-1 right-0 w-80 max-w-[calc(100vw-2rem)] bg-white border border-gray-200 rounded-lg shadow-lg">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                   <span className="text-sm font-semibold text-gray-900">Notifications</span>
                   {alerts.length > 0 && (
