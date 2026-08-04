@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import pool from '../config/db.js';
 import { sendWelcomeEmail } from '../utils/emailService.js';
 
-const DEFAULT_MODULES = ['projects', 'tasks', 'team', 'documents', 'reports', 'activity', 'announcements', 'subscriptions'];
+const DEFAULT_MODULES = ['dashboard', 'projects', 'tasks', 'team', 'documents', 'reports', 'activity', 'announcements', 'subscriptions'];
 
 export const registerUser = async (req, res, next) => {
   try {

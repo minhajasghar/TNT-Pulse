@@ -5,7 +5,8 @@ INSERT INTO roles_permissions (user_id, module_name, can_view, can_create, can_e
 SELECT u.id, m.module_name, TRUE, TRUE, TRUE, TRUE
 FROM users u
 CROSS JOIN (
-  SELECT 'projects' AS module_name
+  SELECT 'dashboard' AS module_name
+  UNION ALL SELECT 'projects' AS module_name
   UNION ALL SELECT 'tasks'
   UNION ALL SELECT 'team'
   UNION ALL SELECT 'documents'

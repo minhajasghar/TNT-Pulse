@@ -50,7 +50,7 @@ export default function ReportsPage() {
         <div className="text-center">
           <BarChart3 size={48} className="text-gray-300 mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-gray-500">Access Restricted</h2>
-          <p className="text-sm text-gray-400 mt-1">Only admins and managers can view reports.</p>
+          <p className="text-sm text-gray-400 mt-1">You do not have permission to view reports.</p>
         </div>
       </div>
     );

@@ -320,22 +320,50 @@ export const getProjectSubscriptions = async (req, res) => {
   }
 };
 
+const CURRENCY_TO_USD = {
+  USD: 1,
+  PKR: 0.0036,
+  EUR: 1.08,
+  GBP: 1.27,
+  AED: 0.2723,
+  SAR: 0.2667,
+};
+
+const CYCLE_MONTHS = { monthly: 1, quarterly: 3, yearly: 12, one_time: null };
+
 export const getExpiringStats = async (req, res) => {
   try {
     const [stats] = await pool.execute(`
       SELECT 
         SUM(CASE WHEN DATEDIFF(expiry_date, CURDATE()) BETWEEN 0 AND 7 THEN 1 ELSE 0 END) as expiring_this_week,
         SUM(CASE WHEN DATEDIFF(expiry_date, CURDATE()) BETWEEN 0 AND 30 THEN 1 ELSE 0 END) as expiring_this_month,
-        SUM(CASE WHEN DATEDIFF(expiry_date, CURDATE()) < 0 THEN 1 ELSE 0 END) as already_expired,
-        SUM(CASE WHEN billing_cycle = 'monthly' THEN cost ELSE 0 END) as total_monthly_cost,
-        SUM(CASE WHEN billing_cycle = 'yearly' THEN cost ELSE 0 END) as yearly_cost_raw
+        SUM(CASE WHEN DATEDIFF(expiry_date, CURDATE()) < 0 THEN 1 ELSE 0 END) as already_expired
       FROM subscriptions
       WHERE status != 'cancelled'
     `);
 
+    const [subscriptions] = await pool.execute(
+      `SELECT cost, currency, billing_cycle
+       FROM subscriptions
+       WHERE status != 'cancelled'`
+    );
+
+    let totalMonthlyUSD = 0;
+    let totalYearlyUSD = 0;
+
+    for (const sub of subscriptions) {
+      const usdCost = Number(sub.cost) * (CURRENCY_TO_USD[sub.currency] || 1);
+      const months = CYCLE_MONTHS[sub.billing_cycle];
+      if (months) {
+        const monthly = usdCost / months;
+        totalMonthlyUSD += monthly;
+        totalYearlyUSD += monthly * 12;
+      } else {
+        totalYearlyUSD += usdCost;
+      }
+    }
+
     const result = stats[0] || {};
-    const total_monthly = Number(result.total_monthly_cost || 0);
-    const yearly_raw = Number(result.yearly_cost_raw || 0);
 
     res.json({ 
       success: true, 
@@ -343,8 +371,8 @@ export const getExpiringStats = async (req, res) => {
         expiring_this_week: Number(result.expiring_this_week || 0),
         expiring_this_month: Number(result.expiring_this_month || 0),
         already_expired: Number(result.already_expired || 0),
-        total_monthly_cost: total_monthly,
-        total_yearly_cost: (total_monthly * 12) + yearly_raw
+        total_monthly_cost: Math.round(totalMonthlyUSD * 100) / 100,
+        total_yearly_cost: Math.round(totalYearlyUSD * 100) / 100,
       }
     });
   } catch (error) {

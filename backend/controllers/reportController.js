@@ -3,37 +3,41 @@ import pool from '../config/db.js';
 export const getProjectReport = async (req, res, next) => {
   try {
     const { from, to, project_id } = req.query;
+    const isSuperOrManager = ['super_admin', 'manager'].includes(req.user.role);
     const dateFilter = from && to ? `AND p.created_at BETWEEN ? AND ?` : '';
     const dateParams = from && to ? [from, `${to} 23:59:59`] : [];
     const projectFilter = project_id ? 'AND p.id = ?' : '';
     const projectParams = project_id ? [project_id] : [];
+    const memberFilter = isSuperOrManager ? '' : 'AND p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)';
+    const memberParams = isSuperOrManager ? [] : [req.user.id];
 
-    const params = [...dateParams, ...projectParams];
+    const params = [...dateParams, ...projectParams, ...memberParams];
+    const conditions = `1=1 AND p.deleted_at IS NULL ${dateFilter} ${projectFilter} ${memberFilter}`;
 
     const [totalResult] = await pool.execute(
-      `SELECT COUNT(*) AS count FROM projects p WHERE 1=1 AND p.deleted_at IS NULL ${dateFilter} ${projectFilter}`,
+      `SELECT COUNT(*) AS count FROM projects p WHERE ${conditions}`,
       params,
     );
 
     const [completedResult] = await pool.execute(
-      `SELECT COUNT(*) AS count FROM projects p WHERE p.status = 'completed' AND p.deleted_at IS NULL ${dateFilter} ${projectFilter}`,
+      `SELECT COUNT(*) AS count FROM projects p WHERE p.status = 'completed' AND ${conditions}`,
       params,
     );
 
     const [onHoldResult] = await pool.execute(
-      `SELECT COUNT(*) AS count FROM projects p WHERE p.status = 'on_hold' AND p.deleted_at IS NULL ${dateFilter} ${projectFilter}`,
+      `SELECT COUNT(*) AS count FROM projects p WHERE p.status = 'on_hold' AND ${conditions}`,
       params,
     );
 
     const [avgTimeResult] = await pool.execute(
       `SELECT AVG(DATEDIFF(COALESCE(p.updated_at, p.created_at), p.created_at)) AS avg_days
-       FROM projects p WHERE p.status = 'completed' AND p.deleted_at IS NULL ${dateFilter} ${projectFilter}`,
+       FROM projects p WHERE p.status = 'completed' AND ${conditions}`,
       params,
     );
 
     const [statusBreakdown] = await pool.execute(
       `SELECT p.status, COUNT(*) AS count
-       FROM projects p WHERE 1=1 AND p.deleted_at IS NULL ${dateFilter} ${projectFilter}
+       FROM projects p WHERE ${conditions}
        GROUP BY p.status`,
       params,
     );
@@ -52,7 +56,7 @@ export const getProjectReport = async (req, res, next) => {
                 )
               END AS progress_percentage
        FROM projects p
-       WHERE 1=1 AND p.deleted_at IS NULL ${dateFilter} ${projectFilter}
+       WHERE ${conditions}
        ORDER BY p.created_at DESC`,
       params,
     );
@@ -76,11 +80,14 @@ export const getProjectReport = async (req, res, next) => {
 export const getTeamReport = async (req, res, next) => {
   try {
     const { from, to } = req.query;
+    const isSuperOrManager = ['super_admin', 'manager'].includes(req.user.role);
     const dateFilterTask = from && to ? 'AND t.created_at BETWEEN ? AND ?' : '';
     const dateFilterDone = from && to ? 'AND t.completed_at BETWEEN ? AND ?' : '';
     const dateParams = from && to ? [from, `${to} 23:59:59`] : [];
 
     const reportParams = [...dateParams, ...dateParams, ...dateParams, ...dateParams];
+    const memberFilter = isSuperOrManager ? '' : 'AND u.id = ?';
+    const memberParams = isSuperOrManager ? [] : [req.user.id];
 
     const projectJoin = 'JOIN projects p ON t.project_id = p.id AND p.deleted_at IS NULL';
 
@@ -92,9 +99,9 @@ export const getTeamReport = async (req, res, next) => {
               (SELECT COUNT(*) FROM tasks t ${projectJoin} WHERE t.assigned_to = u.id AND t.status = 'done' AND t.completed_at <= t.due_date ${dateFilterDone}) AS completed_on_time,
               (SELECT AVG(DATEDIFF(t.completed_at, t.created_at)) FROM tasks t ${projectJoin} WHERE t.assigned_to = u.id AND t.status = 'done' ${dateFilterDone}) AS avg_completion_days
        FROM users u
-       WHERE u.status = 'active'
+       WHERE u.status = 'active' ${memberFilter}
        ORDER BY u.name ASC`,
-      reportParams,
+      [...reportParams, ...memberParams],
     );
 
     const result = members.map((m) => ({
@@ -112,53 +119,56 @@ export const getTeamReport = async (req, res, next) => {
 export const getTaskReport = async (req, res, next) => {
   try {
     const { from, to, project_id } = req.query;
+    const isSuperOrManager = ['super_admin', 'manager'].includes(req.user.role);
     const dateFilter = from && to ? 'AND t.created_at BETWEEN ? AND ?' : '';
     const dateDoneFilter = from && to ? 'AND t.completed_at BETWEEN ? AND ?' : '';
     const dateParams = from && to ? [from, `${to} 23:59:59`] : [];
     const projectFilter = project_id ? 'AND t.project_id = ?' : '';
     const projectParams = project_id ? [project_id] : [];
+    const assignedFilter = isSuperOrManager ? '' : 'AND t.assigned_to = ?';
+    const assignedParams = isSuperOrManager ? [] : [req.user.id];
 
-    const base = [...dateParams, ...projectParams];
-    const baseDone = [...dateParams, ...projectParams];
+    const base = [...dateParams, ...projectParams, ...assignedParams];
+    const baseDone = [...dateParams, ...projectParams, ...assignedParams];
 
     const projectJoin = 'JOIN projects p ON t.project_id = p.id AND p.deleted_at IS NULL';
 
     const [totalResult] = await pool.execute(
-      `SELECT COUNT(*) AS count FROM tasks t ${projectJoin} WHERE 1=1 ${dateFilter} ${projectFilter}`,
+      `SELECT COUNT(*) AS count FROM tasks t ${projectJoin} WHERE 1=1 ${dateFilter} ${projectFilter} ${assignedFilter}`,
       base,
     );
 
     const [onTimeResult] = await pool.execute(
-      `SELECT COUNT(*) AS count FROM tasks t ${projectJoin} WHERE t.status = 'done' AND t.completed_at <= t.due_date ${dateDoneFilter} ${projectFilter}`,
+      `SELECT COUNT(*) AS count FROM tasks t ${projectJoin} WHERE t.status = 'done' AND t.completed_at <= t.due_date ${dateDoneFilter} ${projectFilter} ${assignedFilter}`,
       baseDone,
     );
 
     const [lateResult] = await pool.execute(
-      `SELECT COUNT(*) AS count FROM tasks t ${projectJoin} WHERE t.status = 'done' AND t.completed_at > t.due_date ${dateDoneFilter} ${projectFilter}`,
+      `SELECT COUNT(*) AS count FROM tasks t ${projectJoin} WHERE t.status = 'done' AND t.completed_at > t.due_date ${dateDoneFilter} ${projectFilter} ${assignedFilter}`,
       baseDone,
     );
 
     const [overdueResult] = await pool.execute(
-      `SELECT COUNT(*) AS count FROM tasks t ${projectJoin} WHERE t.due_date < CURDATE() AND t.status != 'done' ${dateFilter} ${projectFilter}`,
+      `SELECT COUNT(*) AS count FROM tasks t ${projectJoin} WHERE t.due_date < CURDATE() AND t.status != 'done' ${dateFilter} ${projectFilter} ${assignedFilter}`,
       base,
     );
 
     const [avgTimeResult] = await pool.execute(
       `SELECT AVG(DATEDIFF(t.completed_at, t.created_at)) AS avg_days
-       FROM tasks t ${projectJoin} WHERE t.status = 'done' ${dateDoneFilter} ${projectFilter}`,
+       FROM tasks t ${projectJoin} WHERE t.status = 'done' ${dateDoneFilter} ${projectFilter} ${assignedFilter}`,
       baseDone,
     );
 
     const [priorityBreakdown] = await pool.execute(
       `SELECT t.priority, COUNT(*) AS count
-       FROM tasks t ${projectJoin} WHERE 1=1 ${dateFilter} ${projectFilter}
+       FROM tasks t ${projectJoin} WHERE 1=1 ${dateFilter} ${projectFilter} ${assignedFilter}
        GROUP BY t.priority`,
       base,
     );
 
     const [statusBreakdown] = await pool.execute(
       `SELECT t.status, COUNT(*) AS count
-       FROM tasks t ${projectJoin} WHERE 1=1 ${dateFilter} ${projectFilter}
+       FROM tasks t ${projectJoin} WHERE 1=1 ${dateFilter} ${projectFilter} ${assignedFilter}
        GROUP BY t.status`,
       base,
     );

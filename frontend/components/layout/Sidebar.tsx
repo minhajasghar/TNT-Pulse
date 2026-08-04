@@ -49,6 +49,7 @@ const roleBadgeColors: Record<string, string> = {
 function NavLinks({ collapsed }: { collapsed: boolean }) {
   const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
 
   const { data: unreadData } = useQuery({
     queryKey: ['unread-alert-count'],
@@ -69,13 +70,9 @@ function NavLinks({ collapsed }: { collapsed: boolean }) {
     );
   }
 
-  const userRole = user.role;
-  const hasPermission = useAuthStore((s) => s.hasPermission);
-
   const visibleNav = navigation.filter((item) => {
-    if (item.module === 'reports') {
-      return userRole === 'super_admin' || userRole === 'manager';
-    }
+    if (item.module === 'dashboard') return true;
+    if (item.module === 'reports') return true;
     if (item.module === 'settings') return true;
     return hasPermission(item.module, 'can_view');
   });

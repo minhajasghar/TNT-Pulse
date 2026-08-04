@@ -223,7 +223,7 @@ function TasksTab({ project }: { project: any }) {
     due_date: '',
     estimated_hours: ''
   });
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, hasPermission } = useAuthStore();
   const isAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'manager';
   const isMember = project.members?.some((m: any) => m.user_id === Number(currentUser?.id));
 
@@ -284,7 +284,7 @@ function TasksTab({ project }: { project: any }) {
     createMutation.mutate(formData);
   };
 
-  const canCreate = isAdmin || isMember;
+  const canCreate = isAdmin || isMember || hasPermission('tasks', 'can_create');
 
   return (
     <div className="space-y-4">

@@ -110,14 +110,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (user?.role === 'manager') return true;
     
     if (!permissions || permissions.length === 0) {
-      if (module === 'dashboard') return true;
-      if (module === 'announcements') return true;
-      return false;
+      return true;
     }
-    
+
     const modulePerm = permissions.find((p) => p.module_name === module);
-    if (!modulePerm) return false;
-    
+    if (!modulePerm) return true;
+
     return Boolean(modulePerm[action]);
   },
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
