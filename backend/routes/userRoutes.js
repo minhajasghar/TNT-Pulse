@@ -20,7 +20,7 @@ router.get('/me/permissions', verifyToken, getMyPermissions);
 router.get('/:id', verifyToken, getUserById);
 router.put('/:id', verifyToken, updateUser);
 router.get('/:id/permissions', verifyToken, getUserPermissions);
-router.put('/:id/permissions', verifyToken, requireRole('super_admin'), updatePermissions);
+  router.put('/:id/permissions', verifyToken, requireRole('super_admin', 'manager'), updatePermissions);
 router.patch('/:id/suspend', verifyToken, checkPermission('team', 'edit'), suspendUser);
 router.patch('/:id/reactivate', verifyToken, checkPermission('team', 'edit'), reactivateUser);
 router.delete('/:id', verifyToken, checkPermission('team', 'delete'), deleteUser);

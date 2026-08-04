@@ -48,13 +48,14 @@ const addSchema = z.object({
   role: z.string().min(1, 'Role is required'),
 });
 
-const permissionModules = ['projects', 'tasks', 'team', 'documents', 'reports', 'activity', 'announcements', 'subscriptions'] as const;
+const permissionModules = ['dashboard', 'projects', 'tasks', 'team', 'documents', 'reports', 'activity', 'announcements', 'subscriptions'] as const;
 
 export default function TeamPage() {
   useEffect(() => { document.title = 'Team — TNT Pulse'; }, []);
   const queryClient = useQueryClient();
   const { user, hasPermission } = useAuthStore();
   const isSuperAdmin = user?.role === 'super_admin';
+  const isAdmin = isSuperAdmin || user?.role === 'manager';
   const canCreate = hasPermission('team', 'can_create');
   const canEdit = hasPermission('team', 'can_edit');
   const canDelete = hasPermission('team', 'can_delete');
@@ -145,7 +146,7 @@ export default function TeamPage() {
                     <Eye size={14} />
                     <span>View</span>
                   </button>
-                  {isSuperAdmin && (
+                  {isAdmin && (
                     <button onClick={() => setPermUser(u)} className="flex-1 px-2 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg">Permissions</button>
                   )}
                   {canEdit && u.status === 'active' && (
