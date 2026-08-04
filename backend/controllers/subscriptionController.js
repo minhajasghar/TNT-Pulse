@@ -68,7 +68,7 @@ export const createSubscription = async (req, res) => {
 export const getAllSubscriptions = async (req, res) => {
   try {
     const { category, status } = req.query;
-    const isSuperOrManager = ['super_admin', 'manager'].includes(req.user.role);
+    const canViewAll = await canViewAllSubscriptions(req.user.id, req.user.role);
 
     let query = `
       SELECT DISTINCT s.*,
@@ -79,7 +79,7 @@ export const getAllSubscriptions = async (req, res) => {
 
     const params = [];
 
-    if (!isSuperOrManager) {
+    if (!canViewAll) {
       query += `
         JOIN subscription_projects sp ON sp.subscription_id = s.id
         JOIN project_members pm ON pm.project_id = sp.project_id
@@ -126,7 +126,7 @@ export const getAllSubscriptions = async (req, res) => {
 export const getSubscriptionById = async (req, res) => {
   try {
     const subscriptionId = Number(req.params.id);
-    const isSuperOrManager = ['super_admin', 'manager'].includes(req.user.role);
+    const canViewAll = await canViewAllSubscriptions(req.user.id, req.user.role);
 
     const [subscriptions] = await pool.execute(
       `SELECT s.*, DATEDIFF(s.expiry_date, CURDATE()) as days_remaining
@@ -150,7 +150,7 @@ export const getSubscriptionById = async (req, res) => {
 
     subscription.linked_projects = projects;
 
-    if (!isSuperOrManager) {
+    if (!canViewAll) {
       const [membership] = await pool.execute(
         `SELECT 1 FROM project_members pm
          JOIN subscription_projects sp ON sp.project_id = pm.project_id
@@ -331,6 +331,20 @@ const CURRENCY_TO_USD = {
 
 const CYCLE_MONTHS = { monthly: 1, quarterly: 3, yearly: 12, one_time: null };
 
+const canViewAllSubscriptions = async (userId, role) => {
+  if (role === 'super_admin' || role === 'manager') return true;
+  const [rows] = await pool.execute(
+    'SELECT can_view FROM roles_permissions WHERE user_id = ? AND module_name = ? LIMIT 1',
+    [userId, 'subscriptions']
+  );
+  return rows.length > 0 && !!rows[0].can_view;
+};
+
+const toUSD = (cost, currency) => {
+  const rate = CURRENCY_TO_USD[String(currency || 'USD').toUpperCase().trim()] || 1;
+  return Number(cost) * rate;
+};
+
 export const getExpiringStats = async (req, res) => {
   try {
     const [stats] = await pool.execute(`
@@ -352,7 +366,7 @@ export const getExpiringStats = async (req, res) => {
     let totalYearlyUSD = 0;
 
     for (const sub of subscriptions) {
-      const usdCost = Number(sub.cost) * (CURRENCY_TO_USD[sub.currency] || 1);
+      const usdCost = toUSD(sub.cost, sub.currency);
       const months = CYCLE_MONTHS[sub.billing_cycle];
       if (months) {
         const monthly = usdCost / months;
@@ -383,7 +397,7 @@ export const getExpiringStats = async (req, res) => {
 
 export const getSubscriptionsByProject = async (req, res) => {
   try {
-    const isSuperOrManager = ['super_admin', 'manager'].includes(req.user.role);
+    const canViewAll = await canViewAllSubscriptions(req.user.id, req.user.role);
     
     let query = `
       SELECT 
@@ -399,7 +413,7 @@ export const getSubscriptionsByProject = async (req, res) => {
     `;
     const params = [];
 
-    if (!isSuperOrManager) {
+    if (!canViewAll) {
       query += ` AND p.id IN (SELECT project_id FROM project_members WHERE user_id = ?) `;
       params.push(req.user.id);
     }
@@ -439,7 +453,7 @@ export const getSubscriptionsByProject = async (req, res) => {
     });
 
     let unlinkedRows = [];
-    if (isSuperOrManager) {
+    if (canViewAll) {
       const [uRows] = await pool.execute(`
         SELECT s.*, DATEDIFF(s.expiry_date, CURDATE()) as days_remaining
         FROM subscriptions s
