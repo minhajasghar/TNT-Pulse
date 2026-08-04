@@ -137,7 +137,7 @@ export default function TeamPage() {
                 <span className="flex items-center gap-1"><ListTodo size={14} /> {u.active_tasks_count ?? 0} active tasks</span>
                 <span>{u.last_seen ? `${formatDistanceToNow(new Date(u.last_seen), { addSuffix: true })}` : 'Never'}</span>
               </div>
-              {(canEdit || canDelete || isSuperAdmin) && u.role !== 'super_admin' && (
+              {user && u.id !== user.id && (
                 <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-gray-100">
                   <button
                     onClick={() => setViewUser(u)}
@@ -177,7 +177,7 @@ export default function TeamPage() {
                       <span>Reactivate</span>
                     </button>
                   )}
-                  {canDelete && user && u.id !== user.id && (
+                  {canDelete && (
                     <button
                       onClick={() => setRemoveUser(u)}
                       className="flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg"
