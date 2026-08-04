@@ -357,13 +357,14 @@ export const getExpiringStats = async (req, res) => {
     `);
 
     const [subscriptions] = await pool.execute(
-      `SELECT cost, currency, billing_cycle
+      `SELECT name, cost, currency, billing_cycle
        FROM subscriptions
        WHERE status != 'cancelled'`
     );
 
     let totalMonthlyUSD = 0;
     let totalYearlyUSD = 0;
+    const costBreakdown = [];
 
     for (const sub of subscriptions) {
       const usdCost = toUSD(sub.cost, sub.currency);
@@ -372,8 +373,22 @@ export const getExpiringStats = async (req, res) => {
         const monthly = usdCost / months;
         totalMonthlyUSD += monthly;
         totalYearlyUSD += monthly * 12;
+        costBreakdown.push({
+          name: sub.name,
+          cost: Number(sub.cost),
+          currency: sub.currency,
+          billing_cycle: sub.billing_cycle,
+          monthly_usd: Math.round(monthly * 100) / 100,
+        });
       } else {
         totalYearlyUSD += usdCost;
+        costBreakdown.push({
+          name: sub.name,
+          cost: Number(sub.cost),
+          currency: sub.currency,
+          billing_cycle: sub.billing_cycle,
+          monthly_usd: null,
+        });
       }
     }
 
@@ -387,6 +402,7 @@ export const getExpiringStats = async (req, res) => {
         already_expired: Number(result.already_expired || 0),
         total_monthly_cost: Math.round(totalMonthlyUSD * 100) / 100,
         total_yearly_cost: Math.round(totalYearlyUSD * 100) / 100,
+        cost_breakdown: costBreakdown,
       }
     });
   } catch (error) {

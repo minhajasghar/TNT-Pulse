@@ -462,6 +462,21 @@ export default function SubscriptionsPage() {
               <p className="text-2xl font-bold mt-2 text-gray-900">
                 ${statsData.total_monthly_cost?.toFixed(2) || '0.00'}/mo
               </p>
+              {statsData.cost_breakdown?.filter((b: any) => b.monthly_usd != null).length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-100 space-y-1 text-xs text-gray-500">
+                  {statsData.cost_breakdown.filter((b: any) => b.monthly_usd != null).map((b: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between gap-2">
+                      <span className="truncate">{b.name}</span>
+                      <span className="font-medium text-gray-700 shrink-0">
+                        ${b.monthly_usd.toFixed(2)}/mo
+                        <span className="text-gray-400 font-normal">
+                          {b.currency === 'USD' ? '' : ` (${b.currency} ${Number(b.cost).toFixed(2)})`}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
