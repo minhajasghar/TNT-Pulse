@@ -502,6 +502,18 @@ export const getUserPermissions = async (req, res, next) => {
       'SELECT id, user_id, module_name, can_view, can_create, can_edit, can_delete FROM roles_permissions WHERE user_id = ?',
       [Number(req.params.id)],
     );
+
+    if (rows.length === 0) {
+      const defaults = DEFAULT_MODULES.map((module_name) => ({
+        module_name,
+        can_view: true,
+        can_create: true,
+        can_edit: true,
+        can_delete: true,
+      }));
+      return res.status(200).json({ success: true, data: defaults });
+    }
+
     return res.status(200).json({ success: true, data: mapPermissions(rows) });
   } catch (err) {
     next(err);
@@ -521,9 +533,9 @@ export const getMyPermissions = async (req, res, next) => {
       const defaults = DEFAULT_MODULES.map((module_name) => ({
         module_name,
         can_view: true,
-        can_create: false,
-        can_edit: false,
-        can_delete: false,
+        can_create: true,
+        can_edit: true,
+        can_delete: true,
       }));
       return res.status(200).json({ success: true, data: defaults });
     }

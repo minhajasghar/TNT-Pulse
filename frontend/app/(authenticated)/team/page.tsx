@@ -786,7 +786,7 @@ function PermissionsModal({ user: targetUser, onClose }: { user: UserData; onClo
         </div>
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
           {permissionModules.map((mod) => {
-            const p = perms[mod] || { view: false, create: false, edit: false, delete: false };
+            const p = perms[mod] || { view: true, create: true, edit: true, delete: true };
             return (
               <div key={mod} className="border border-gray-100 rounded-lg p-4">
                 <p className="text-sm font-semibold text-gray-700 capitalize mb-3">{mod}</p>

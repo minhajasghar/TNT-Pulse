@@ -4,6 +4,8 @@ import crypto from 'crypto';
 import pool from '../config/db.js';
 import { sendWelcomeEmail } from '../utils/emailService.js';
 
+const DEFAULT_MODULES = ['projects', 'tasks', 'team', 'documents', 'reports', 'activity', 'announcements', 'subscriptions'];
+
 export const registerUser = async (req, res, next) => {
   try {
     const { name, email, password: providedPassword, role } = req.body;
@@ -41,6 +43,14 @@ export const registerUser = async (req, res, next) => {
       'INSERT INTO notification_preferences (user_id, email_enabled, in_app_enabled, alert_days_before_deadline) VALUES (?, TRUE, TRUE, 3)',
       [result.insertId],
     );
+
+    for (const moduleName of DEFAULT_MODULES) {
+      await pool.execute(
+        `INSERT INTO roles_permissions (user_id, module_name, can_view, can_create, can_edit, can_delete)
+         VALUES (?, ?, TRUE, TRUE, TRUE, TRUE)`,
+        [result.insertId, moduleName],
+      );
+    }
 
     sendWelcomeEmail({
       to: email,
