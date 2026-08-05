@@ -1,30 +1,27 @@
-import { Resend } from 'resend';
-
-let resend = null;
-
-const getResend = () => {
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error('RESEND_API_KEY is not configured');
-  }
-  if (!resend) {
-    resend = new Resend(process.env.RESEND_API_KEY);
-  }
-  return resend;
-};
+const MAIL_ENDPOINT = 'http://localhost/mail/send-alert.php';
 
 export const sendEmail = async ({ to, subject, html }) => {
   try {
-    const { data, error } = await getResend().emails.send({
-      from: 'noreply@tntpulse.com',
-      to,
-      subject,
-      html,
+    const body = new URLSearchParams();
+    body.set('to', to);
+    body.set('subject', subject);
+    body.set('message', html);
+
+    const response = await fetch(MAIL_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
     });
-    if (error) {
-      console.error(`Email send failed: ${error.message}`);
-      return { success: false, error: error.message };
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result.success) {
+      const errorMessage = result.error || `Mail endpoint returned HTTP ${response.status}`;
+      console.error(`Email send failed: ${errorMessage}`);
+      return { success: false, error: errorMessage };
     }
-    return { success: true, messageId: data?.id };
+
+    return { success: true };
   } catch (err) {
     console.error(`Email send failed: ${err.message}`);
     return { success: false, error: err.message };
