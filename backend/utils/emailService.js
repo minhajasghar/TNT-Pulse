@@ -1,4 +1,4 @@
-const MAIL_ENDPOINT = process.env.MAIL_ENDPOINT || 'http://localhost/mail/send-alert.php';
+const getMailEndpoint = () => process.env.MAIL_ENDPOINT || 'http://localhost/mail/send-alert.php';
 
 export const sendEmail = async ({ to, subject, html }) => {
   try {
@@ -7,7 +7,7 @@ export const sendEmail = async ({ to, subject, html }) => {
     body.set('subject', subject);
     body.set('message', html);
 
-    const response = await fetch(MAIL_ENDPOINT, {
+    const response = await fetch(getMailEndpoint(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),

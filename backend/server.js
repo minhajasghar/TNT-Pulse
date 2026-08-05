@@ -19,7 +19,7 @@ import escalationRuleRoutes from './routes/escalationRuleRoutes.js';
 import { initCronJobs } from './utils/cronJobs.js';
 import { runMigrations } from './utils/migrate.js';
 
-dotenv.config();
+dotenv.config({ override: true });
 
 const app = express();
 const PORT = parseInt(process.env.PORT, 10) || 5000;
