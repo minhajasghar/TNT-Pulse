@@ -107,9 +107,7 @@ JWT_SECRET=your_jwt_secret
 
 FRONTEND_URL=https://pulse.tntinnov.com
 
-EMAIL_USER=your_email
-EMAIL_PASS=your_email_password
-EMAIL_FROM=Your Name <noreply@example.com>
+RESEND_API_KEY=your_resend_api_key
 ```
 
 ---

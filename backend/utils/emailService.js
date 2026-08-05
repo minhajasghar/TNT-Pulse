@@ -1,25 +1,20 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-};
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendEmail = async ({ to, subject, html }) => {
   try {
-    const transporter = createTransporter();
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || 'TNT Innovations <noreply@tntinnovations.com>',
+    const { data, error } = await resend.emails.send({
+      from: 'noreply@tntpulse.com',
       to,
       subject,
       html,
     });
-    return { success: true, messageId: info.messageId };
+    if (error) {
+      console.error(`Email send failed: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+    return { success: true, messageId: data?.id };
   } catch (err) {
     console.error(`Email send failed: ${err.message}`);
     return { success: false, error: err.message };
