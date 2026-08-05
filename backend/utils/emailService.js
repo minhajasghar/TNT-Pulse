@@ -1,6 +1,39 @@
+import nodemailer from 'nodemailer';
+
 const getMailEndpoint = () => process.env.MAIL_ENDPOINT || 'http://localhost/mail/send-alert.php';
 
+const getTransporter = () => {
+  const smtpHost = process.env.SMTP_HOST;
+  if (!smtpHost) return null;
+  return nodemailer.createTransport({
+    host: smtpHost,
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: Number(process.env.SMTP_PORT || 587) === 465,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+};
+
 export const sendEmail = async ({ to, subject, html }) => {
+  const transporter = getTransporter();
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from: `"${process.env.MAIL_FROM_NAME || 'TNT Pulse'}" <${process.env.MAIL_FROM || process.env.SMTP_USER}>`,
+        to,
+        subject,
+        html,
+      });
+      return { success: true };
+    } catch (err) {
+      console.error(`Email send failed (SMTP): ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  }
+
   try {
     const body = new URLSearchParams();
     body.set('to', to);
