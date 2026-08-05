@@ -819,7 +819,6 @@ export default function ProjectsPage() {
   
   const canManage = user?.role === 'super_admin' || user?.role === 'manager';
   const canCreate = hasPermission('projects', 'can_create');
-  const canDeleteGlobal = hasPermission('projects', 'can_delete');
   const canEditGlobal = hasPermission('projects', 'can_edit');
   
   const [statusFilter, setStatusFilter] = useState('');
@@ -878,7 +877,7 @@ export default function ProjectsPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
         <div className="flex items-center gap-3">
-          {canDeleteGlobal && (
+          {canManage && (
             <button onClick={() => setShowRecycleBin(true)} className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg transition-colors">
               <Trash2 size={18} />
               Recycle Bin
@@ -969,7 +968,7 @@ export default function ProjectsPage() {
                         <Pencil size={16} />
                       </button>
                     )}
-                    {canDeleteGlobal && (
+                    {canManage && (
                       <button
                         onClick={(e) => handleDeleteClick(e, p)}
                         className="p-1.5 bg-white hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-md transition-colors"

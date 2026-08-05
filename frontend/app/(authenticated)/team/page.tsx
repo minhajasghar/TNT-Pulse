@@ -57,8 +57,6 @@ export default function TeamPage() {
   const isSuperAdmin = user?.role === 'super_admin';
   const isAdmin = isSuperAdmin || user?.role === 'manager';
   const canCreate = hasPermission('team', 'can_create');
-  const canEdit = hasPermission('team', 'can_edit');
-  const canDelete = hasPermission('team', 'can_delete');
   const { toast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
   const [permUser, setPermUser] = useState<UserData | null>(null);
@@ -149,7 +147,7 @@ export default function TeamPage() {
                   {isAdmin && (
                     <button onClick={() => setPermUser(u)} className="flex-1 px-2 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg">Permissions</button>
                   )}
-                  {canEdit && u.status === 'active' && (
+                  {isSuperAdmin && u.status === 'active' && (
                     <button
                       onClick={() => setSuspendUser(u)}
                       className="flex items-center justify-center gap-1 flex-1 px-2 py-1.5 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200"
@@ -158,7 +156,7 @@ export default function TeamPage() {
                       <span>Suspend</span>
                     </button>
                   )}
-                  {canEdit && u.status === 'suspended' && (
+                  {isSuperAdmin && u.status === 'suspended' && (
                     <button
                       onClick={async () => {
                         try {
@@ -177,7 +175,7 @@ export default function TeamPage() {
                       <span>Reactivate</span>
                     </button>
                   )}
-                  {canDelete && (
+                  {isSuperAdmin && (
                     <button
                       onClick={() => setRemoveUser(u)}
                       className="flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg"
