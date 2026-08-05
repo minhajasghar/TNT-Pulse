@@ -968,7 +968,7 @@ export default function ProjectsPage() {
                         <Pencil size={16} />
                       </button>
                     )}
-                    {canManage && (
+                    {(canManage || p.is_member === 1) && (
                       <button
                         onClick={(e) => handleDeleteClick(e, p)}
                         className="p-1.5 bg-white hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-md transition-colors"

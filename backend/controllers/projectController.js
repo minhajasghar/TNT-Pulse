@@ -315,9 +315,22 @@ export const updateProject = async (req, res, next) => {
 export const deleteProject = async (req, res, next) => {
   try {
     const projectId = Number(req.params.id);
-    const [existing] = await pool.execute('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]);
+    const [existing] = await pool.execute('SELECT id, name, created_by FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    const isManager = req.user.role === 'super_admin' || req.user.role === 'manager';
+
+    if (!isManager) {
+      const [memberRows] = await pool.execute(
+        'SELECT id FROM project_members WHERE project_id = ? AND user_id = ?',
+        [projectId, req.user.id],
+      );
+      const isCreator = Number(existing[0].created_by) === Number(req.user.id);
+      if (memberRows.length === 0 && !isCreator) {
+        return res.status(403).json({ success: false, message: 'You are not a member of this project' });
+      }
     }
 
     await pool.execute('UPDATE projects SET deleted_at = NOW(), deleted_by = ? WHERE id = ?', [Number(req.user.id), projectId]);

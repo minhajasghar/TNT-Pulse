@@ -21,7 +21,7 @@ router.get('/', verifyToken, getAllProjects);
 router.get('/recycle-bin', verifyToken, requireRole('super_admin', 'manager'), getRecycleBin);
 router.get('/:id', verifyToken, getProjectById);
 router.put('/:id', verifyToken, updateProject);
-router.delete('/:id', verifyToken, requireRole('super_admin', 'manager'), deleteProject);
+router.delete('/:id', verifyToken, deleteProject);
 router.post('/:id/members', verifyToken, requireRole('super_admin', 'manager'), addMember);
 router.patch('/:id/members/:userId/role', verifyToken, requireRole('super_admin', 'manager'), updateMemberRole);
 router.delete('/:id/members/:userId', verifyToken, requireRole('super_admin', 'manager'), removeMember);

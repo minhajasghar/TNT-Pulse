@@ -147,7 +147,7 @@ export default function TeamPage() {
                   {isAdmin && (
                     <button onClick={() => setPermUser(u)} className="flex-1 px-2 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg">Permissions</button>
                   )}
-                  {isSuperAdmin && u.status === 'active' && (
+                  {isSuperAdmin && u.role !== 'super_admin' && u.status === 'active' && (
                     <button
                       onClick={() => setSuspendUser(u)}
                       className="flex items-center justify-center gap-1 flex-1 px-2 py-1.5 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200"
@@ -156,7 +156,7 @@ export default function TeamPage() {
                       <span>Suspend</span>
                     </button>
                   )}
-                  {isSuperAdmin && u.status === 'suspended' && (
+                  {isSuperAdmin && u.role !== 'super_admin' && u.status === 'suspended' && (
                     <button
                       onClick={async () => {
                         try {
@@ -175,7 +175,7 @@ export default function TeamPage() {
                       <span>Reactivate</span>
                     </button>
                   )}
-                  {isSuperAdmin && (
+                  {isSuperAdmin && u.role !== 'super_admin' && (
                     <button
                       onClick={() => setRemoveUser(u)}
                       className="flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg"
