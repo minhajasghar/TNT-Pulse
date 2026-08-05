@@ -1,4 +1,4 @@
-const MAIL_ENDPOINT = 'http://localhost/mail/send-alert.php';
+const MAIL_ENDPOINT = process.env.MAIL_ENDPOINT || 'http://localhost/mail/send-alert.php';
 
 export const sendEmail = async ({ to, subject, html }) => {
   try {
