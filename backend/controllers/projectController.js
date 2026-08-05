@@ -402,6 +402,19 @@ export const addMember = async (req, res) => {
 
     console.log('Member added successfully');
 
+    // Trigger immediate deadline alert so newly added members are notified if the project is near its deadline
+    import('../utils/cronJobs.js')
+      .then(async (m) => {
+        const [projectRows] = await pool.execute(
+          'SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL',
+          [project_id],
+        );
+        if (projectRows.length > 0) {
+          return m.sendProjectDeadlineAlert(projectRows[0]);
+        }
+      })
+      .catch((err) => console.error('Member add alert check failed:', err));
+
     return res.status(200).json({
       success: true,
       message: `${users[0].name} added to project successfully`,
