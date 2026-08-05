@@ -122,6 +122,11 @@ export const createProject = async (req, res) => {
 
     const [projectRows] = await pool.execute('SELECT * FROM projects WHERE id = ?', [projectId]);
 
+    // Trigger immediate deadline email alerts for the newly created project
+    import('../utils/cronJobs.js')
+      .then((m) => m.sendProjectDeadlineAlert(projectRows[0]))
+      .catch((err) => console.error('Immediate project alert check failed:', err));
+
     // Trigger immediate alert check for any newly created subscriptions
     if (new_subscriptions && new_subscriptions.length > 0) {
       import('../utils/cronJobs.js')

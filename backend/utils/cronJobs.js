@@ -43,20 +43,37 @@ const getUser = async (userId) => {
   return rows[0] || null;
 };
 
-const checkDeadlineWarnings = async () => {
+export const sendProjectDeadlineAlert = async (project) => {
   try {
-    console.log('Running deadline check...');
+    if (!project || !project.deadline) {
+      return { success: true, skipped: true };
+    }
 
-    const [projects] = await pool.execute(`
+    if (project.status === 'completed' || project.status === 'on_hold') {
+      return { success: true, skipped: true };
+    }
+
+    const deadline = new Date(project.deadline);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysRemaining = Math.round((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysRemaining > 7) {
+      return { success: true, skipped: true };
+    }
+
+    const [members] = await pool.execute(`
       SELECT 
-        p.id, p.name, p.deadline,
-        p.created_by,
-        DATEDIFF(p.deadline, CURDATE()) as days_remaining
-      FROM projects p
-      WHERE p.deleted_at IS NULL
-        AND p.status NOT IN ('completed', 'on_hold')
-        AND DATEDIFF(p.deadline, CURDATE()) <= 7
-    `);
+        u.id, u.name, u.email,
+        np.email_enabled,
+        np.in_app_enabled,
+        np.alert_days_before_deadline
+      FROM project_members pm
+      JOIN users u ON pm.user_id = u.id
+      LEFT JOIN notification_preferences np ON np.user_id = u.id
+      WHERE pm.project_id = ?
+        AND u.status = 'active'
+    `, [project.id]);
 
     const [admins] = await pool.execute(`
       SELECT id, name, email 
@@ -65,99 +82,115 @@ const checkDeadlineWarnings = async () => {
         AND status = 'active'
     `);
 
-    let alertCount = 0;
+    let emailCount = 0;
 
-    for (const project of projects) {
-      const [members] = await pool.execute(`
-        SELECT 
-          u.id, u.name, u.email,
-          np.email_enabled,
-          np.in_app_enabled,
-          np.alert_days_before_deadline
-        FROM project_members pm
-        JOIN users u ON pm.user_id = u.id
-        LEFT JOIN notification_preferences np ON np.user_id = u.id
-        WHERE pm.project_id = ?
-          AND u.status = 'active'
-      `, [project.id]);
+    for (const member of members) {
+      const threshold = member.alert_days_before_deadline || 3;
 
-      for (const member of members) {
-        const threshold = member.alert_days_before_deadline || 3;
+      if (daysRemaining > threshold) continue;
 
-        if (project.days_remaining > threshold) continue;
+      const [existing] = await pool.execute(`
+        SELECT id FROM alerts 
+        WHERE user_id = ?
+          AND type = 'deadline_warning'
+          AND related_entity_id = ?
+          AND DATE(created_at) = CURDATE()
+      `, [member.id, project.id]);
 
-        const [existing] = await pool.execute(`
-          SELECT id FROM alerts 
-          WHERE user_id = ?
-            AND type = 'deadline_warning'
-            AND related_entity_id = ?
-            AND DATE(created_at) = CURDATE()
-        `, [member.id, project.id]);
+      if (existing.length > 0) continue;
 
-        if (existing.length > 0) continue;
-
-        if (member.in_app_enabled !== false) {
-          await pool.execute(`
-            INSERT INTO alerts 
-            (user_id, type, message, related_entity_type, related_entity_id)
-            VALUES (?, ?, ?, 'project', ?)
-          `, [
-            member.id,
-            'deadline_warning',
-            `Project "${project.name}" deadline in ${project.days_remaining} day(s)`,
-            project.id,
-          ]);
-          alertCount++;
-        }
-
-        if (member.email_enabled !== false) {
-          await sendDeadlineWarningEmail({
-            to: member.email,
-            name: member.name,
-            projectName: project.name,
-            deadline: project.deadline,
-            daysRemaining: project.days_remaining,
-          });
-        }
-      }
-
-      for (const admin of admins) {
-        const [existing] = await pool.execute(`
-          SELECT id FROM alerts
-          WHERE user_id = ?
-            AND type = 'admin_deadline_warning'
-            AND related_entity_id = ?
-            AND DATE(created_at) = CURDATE()
-        `, [admin.id, project.id]);
-
-        if (existing.length > 0) continue;
-
-        const memberNames = members.map(m => m.name).join(', ');
-
+      if (member.in_app_enabled !== false) {
         await pool.execute(`
-          INSERT INTO alerts
+          INSERT INTO alerts 
           (user_id, type, message, related_entity_type, related_entity_id)
           VALUES (?, ?, ?, 'project', ?)
         `, [
-          admin.id,
-          'admin_deadline_warning',
-          `ADMIN ALERT: Project "${project.name}" expires in ${project.days_remaining} day(s). Members: ${memberNames}`,
+          member.id,
+          'deadline_warning',
+          `Project "${project.name}" deadline in ${daysRemaining} day(s)`,
           project.id,
         ]);
+      }
 
+      if (member.email_enabled !== false) {
         await sendDeadlineWarningEmail({
-          to: admin.email,
-          name: admin.name,
+          to: member.email,
+          name: member.name,
           projectName: project.name,
           deadline: project.deadline,
-          daysRemaining: project.days_remaining,
-          isAdminAlert: true,
-          memberNames: memberNames,
+          daysRemaining,
         });
+        emailCount++;
       }
     }
 
-    console.log(`Deadline check complete. ${alertCount} alerts sent.`);
+    const memberNames = members.map(m => m.name).join(', ');
+
+    for (const admin of admins) {
+      const [existing] = await pool.execute(`
+        SELECT id FROM alerts
+        WHERE user_id = ?
+          AND type = 'admin_deadline_warning'
+          AND related_entity_id = ?
+          AND DATE(created_at) = CURDATE()
+      `, [admin.id, project.id]);
+
+      if (existing.length > 0) continue;
+
+      await pool.execute(`
+        INSERT INTO alerts
+        (user_id, type, message, related_entity_type, related_entity_id)
+        VALUES (?, ?, ?, 'project', ?)
+      `, [
+        admin.id,
+        'admin_deadline_warning',
+        `ADMIN ALERT: Project "${project.name}" expires in ${daysRemaining} day(s). Members: ${memberNames}`,
+        project.id,
+      ]);
+
+      await sendDeadlineWarningEmail({
+        to: admin.email,
+        name: admin.name,
+        projectName: project.name,
+        deadline: project.deadline,
+        daysRemaining,
+        isAdminAlert: true,
+        memberNames: memberNames,
+      });
+      emailCount++;
+    }
+
+    console.log(`[sendProjectDeadlineAlert] Project #${project.id}: ${emailCount} email(s) sent`);
+    return { success: true, emailCount };
+  } catch (error) {
+    console.error('sendProjectDeadlineAlert error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+const checkDeadlineWarnings = async () => {
+  try {
+    console.log('Running deadline check...');
+
+    const [projects] = await pool.execute(`
+      SELECT 
+        p.id, p.name, p.deadline, p.status,
+        p.created_by,
+        DATEDIFF(p.deadline, CURDATE()) as days_remaining
+      FROM projects p
+      WHERE p.deleted_at IS NULL
+        AND p.status NOT IN ('completed', 'on_hold')
+        AND DATEDIFF(p.deadline, CURDATE()) <= 7
+    `);
+
+    let emailCount = 0;
+
+    for (const project of projects) {
+      const result = await sendProjectDeadlineAlert(project);
+      if (result && result.emailCount) emailCount += result.emailCount;
+    }
+
+    console.log(`Deadline check complete. ${emailCount} alert email(s) sent.`);
   } catch (error) {
     console.error('Deadline check error:', error);
   }
@@ -384,6 +417,18 @@ export const checkSubscriptionExpiryAlerts = async (specificSubscriptionId = nul
           INSERT INTO alerts (user_id, type, message, related_entity_type, related_entity_id)
           VALUES (?, 'subscription_expiry', ?, 'subscription', ?)
         `, [admin.id, `[ADMIN] ${alertMessage}`, sub.id]);
+
+        await sendSubscriptionAlertEmail({
+          to: admin.email,
+          name: admin.name,
+          subscriptionName: sub.name,
+          category: sub.category,
+          provider: sub.provider,
+          expiryDate: sub.expiry_date,
+          daysRemaining: sub.days_remaining,
+          cost: sub.cost,
+          billingCycle: sub.billing_cycle,
+        });
       }
     }
 
@@ -402,6 +447,10 @@ export const initCronJobs = () => {
 
   cron.schedule('0 0 * * *', () => {
     checkSubscriptionExpiryAlerts();
+  });
+
+  cron.schedule('0 7 * * *', () => {
+    checkDeadlineWarnings();
   });
 
   cron.schedule('30 8 * * *', () => {
