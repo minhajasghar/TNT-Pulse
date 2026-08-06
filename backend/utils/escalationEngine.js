@@ -116,7 +116,7 @@ async function fireSubscriptionEscalationAlert(subscription, rule, daysRemaining
   for (const email of accountEmails) {
     await sendSubscriptionAlertEmail({
       to: email,
-      name: email.split('@')[0],
+      name: email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
       subscriptionName: subscription.name,
       category: subscription.category || 'other',
       provider: subscription.provider,
@@ -145,9 +145,24 @@ async function fireSubscriptionEscalationAlert(subscription, rule, daysRemaining
   }
 }
 
+// Only these exact thresholds are permitted — 50% elapsed, or 7/3/1/0 days remaining.
+// Any rule in the DB that doesn't match is silently skipped to prevent unexpected alerts.
+const ALLOWED_PERCENTAGE_THRESHOLDS = new Set([50]);
+const ALLOWED_FIXED_DAY_THRESHOLDS = new Set([0, 1, 3, 7]);
+
+function isApprovedRule(rule) {
+  const val = Number(rule.threshold_value);
+  if (rule.trigger_type === 'percentage') return ALLOWED_PERCENTAGE_THRESHOLDS.has(val);
+  if (rule.trigger_type === 'fixed_days') return ALLOWED_FIXED_DAY_THRESHOLDS.has(val);
+  return false;
+}
+
 async function processEntityRules({ rules, entities, entityType, getDates }) {
-  const percentageRules = rules.filter(r => r.trigger_type === 'percentage').sort((a, b) => a.display_order - b.display_order);
-  const fixedDayRules = rules.filter(r => r.trigger_type === 'fixed_days').sort((a, b) => b.display_order - a.display_order);
+  // Filter to only approved rules before processing
+  const approvedRules = rules.filter(isApprovedRule);
+
+  const percentageRules = approvedRules.filter(r => r.trigger_type === 'percentage').sort((a, b) => a.display_order - b.display_order);
+  const fixedDayRules = approvedRules.filter(r => r.trigger_type === 'fixed_days').sort((a, b) => b.display_order - a.display_order);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

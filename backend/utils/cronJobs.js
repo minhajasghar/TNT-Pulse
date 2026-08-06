@@ -381,7 +381,7 @@ export const checkSubscriptionExpiryAlerts = async (specificSubscriptionId = nul
       try {
         await sendBatchedSubscriptionAlertEmail({
           to: email,
-          name: email.split('@')[0],
+          name: email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
           subscriptions: userSubs,
         });
         emailCount++;

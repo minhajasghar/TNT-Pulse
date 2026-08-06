@@ -66,12 +66,11 @@ export default function EscalationRuleModal({ isOpen, onClose, rule }: Props) {
     const errs: Record<string, string> = {};
     if (!formData.rule_name.trim()) errs.rule_name = 'Rule name is required';
 
+    const val = Number(formData.threshold_value);
     if (formData.trigger_type === 'percentage') {
-      const val = Number(formData.threshold_value);
-      if (val < 1 || val > 100) errs.threshold_value = 'Percentage must be between 1 and 100';
+      if (val !== 50) errs.threshold_value = 'Only 50% is a supported percentage threshold';
     } else {
-      const val = Number(formData.threshold_value);
-      if (val < 0) errs.threshold_value = 'Days must be 0 or greater';
+      if (![0, 1, 3, 7].includes(val)) errs.threshold_value = 'Only 7, 3, 1, or 0 days are supported thresholds';
     }
 
     setErrors(errs);
@@ -105,9 +104,23 @@ export default function EscalationRuleModal({ isOpen, onClose, rule }: Props) {
     mutation.mutate(formData);
   };
 
+  const PERCENTAGE_OPTIONS = [{ value: 50, label: '50% of time elapsed (Halfway Point)' }];
+  const FIXED_DAY_OPTIONS = [
+    { value: 7, label: '7 days remaining (One Week Warning)' },
+    { value: 3, label: '3 days remaining (Three Days Warning)' },
+    { value: 1, label: '1 day remaining (Final Day Warning)' },
+    { value: 0, label: '0 days / On due date (Overdue/Expired)' },
+  ];
+
   const update = <K extends keyof EscalationRule>(key: K, value: EscalationRule[K]) => {
     setFormData(prev => ({ ...prev, [key]: value }));
     setErrors(prev => ({ ...prev, [key]: '' }));
+  };
+
+  const handleTriggerTypeChange = (newType: 'percentage' | 'fixed_days') => {
+    const defaultThreshold = newType === 'percentage' ? 50 : 7;
+    setFormData(prev => ({ ...prev, trigger_type: newType, threshold_value: defaultThreshold }));
+    setErrors(prev => ({ ...prev, threshold_value: '' }));
   };
 
   const triggerLabel = formData.trigger_type === 'percentage' ? 'time elapsed' : 'remaining';
@@ -153,7 +166,7 @@ export default function EscalationRuleModal({ isOpen, onClose, rule }: Props) {
                   name="trigger_type"
                   value="percentage"
                   checked={formData.trigger_type === 'percentage'}
-                  onChange={() => update('trigger_type', 'percentage')}
+                  onChange={() => handleTriggerTypeChange('percentage')}
                   className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                 />
                 <span className="text-sm text-gray-700">Percentage of time elapsed</span>
@@ -164,7 +177,7 @@ export default function EscalationRuleModal({ isOpen, onClose, rule }: Props) {
                   name="trigger_type"
                   value="fixed_days"
                   checked={formData.trigger_type === 'fixed_days'}
-                  onChange={() => update('trigger_type', 'fixed_days')}
+                  onChange={() => handleTriggerTypeChange('fixed_days')}
                   className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                 />
                 <span className="text-sm text-gray-700">Fixed days remaining</span>
@@ -178,17 +191,20 @@ export default function EscalationRuleModal({ isOpen, onClose, rule }: Props) {
                 ? 'Trigger when ___% of time has passed'
                 : 'Trigger when ___ days remain'}
             </label>
-            <input
-              type="number"
+            <select
               value={formData.threshold_value}
               onChange={(e) => update('threshold_value', Number(e.target.value))}
-              min={formData.trigger_type === 'percentage' ? 1 : 0}
-              max={formData.trigger_type === 'percentage' ? 100 : undefined}
-              className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-            />
-            {formData.trigger_type === 'fixed_days' && (
-              <p className="text-xs text-gray-500 mt-1">Use 0 for the exact due date, negative handled automatically for overdue</p>
-            )}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
+            >
+              {(formData.trigger_type === 'percentage' ? PERCENTAGE_OPTIONS : FIXED_DAY_OPTIONS).map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {formData.trigger_type === 'percentage'
+                ? 'Only the 50% halfway-point alert is supported.'
+                : 'Select one of the standard deadline warning intervals.'}
+            </p>
             {errors.threshold_value && <p className="text-xs text-red-500 mt-1">{errors.threshold_value}</p>}
           </div>
 
