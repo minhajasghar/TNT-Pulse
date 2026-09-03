@@ -97,12 +97,6 @@ MySQL
 
 ---
 
-## Screenshots / Demo
-
-*(Add screenshots or a screen-recorded walkthrough GIF/video here — dashboard, task management, alert system, etc.)*
-
----
-
 ## Author
 
 **[Minhaj Asghar](https://minhajasghar.vercel.app)**
